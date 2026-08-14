@@ -7,14 +7,34 @@ verdad). Esto es lo que se empaqueta con PyInstaller en un .exe.
 """
 
 import logging
+import os
+import sys
 import threading
+
+# Con --windowed (sin consola), Windows deja sys.stdout/sys.stderr en None.
+# Si algo intenta escribir ahi (logging, un print suelto, hasta una libreria
+# de terceros) la app se cierra sola sin avisar nada. Hay que resolver esto
+# ANTES de importar db/app, porque esos modulos configuran logging al cargarse.
+if getattr(sys, "frozen", False):
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+    log_dir = os.path.join(os.path.expanduser("~"), "AuctionsBroker")
+    os.makedirs(log_dir, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        filename=os.path.join(log_dir, "app.log"),
+    )
+else:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 import webview
 
 import db
 from app import app
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("main")
 
 HOST = "127.0.0.1"

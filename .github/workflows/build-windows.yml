@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: >
-          pyinstaller --onefile --name AuctionsBroker
+          pyinstaller --onefile --windowed --name AuctionsBroker
           --add-data "templates;templates"
           --add-data "static;static"
           main.py
