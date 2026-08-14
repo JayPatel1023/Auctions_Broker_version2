@@ -90,7 +90,10 @@ def api_export():
         provincia=request.args.get("provincia") or None,
         texto=request.args.get("texto") or None,
     )
-    tmp = os.path.join(tempfile.gettempdir(), "subastas-filtradas.xlsx")
+    # nombre unico por pedido: si se hacen varios exports seguidos (o en
+    # paralelo) un nombre fijo puede pisarse a si mismo a mitad de escritura
+    fd, tmp = tempfile.mkstemp(suffix=".xlsx", prefix="subastas-")
+    os.close(fd)
     export.exportar(filas, tmp)
     return send_file(
         tmp,
