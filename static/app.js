@@ -26,10 +26,16 @@
     return n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
   }
 
+  var TIPO_BIEN_COLOR = { "Inmueble": "#2a78d6", "Vehículo": "#eb6834", "Bien mueble": "#1baf7a" };
+
   function statusBadge(estado) {
-    if (estado === "Próxima apertura") return '<span class="badge pronto">Próxima apertura</span>';
-    if (estado === "Celebrándose") return '<span class="badge abierta">Celebrándose</span>';
-    return '<span class="badge cerrada">Concluida</span>';
+    if (estado === "Próxima apertura") {
+      return '<span class="badge pronto"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#b8790f" stroke-width="1.3"/><line x1="5" y1="5" x2="5" y2="2.6" stroke="#b8790f" stroke-width="1.3"/><line x1="5" y1="5" x2="6.8" y2="6" stroke="#b8790f" stroke-width="1.3"/></svg>Próxima apertura</span>';
+    }
+    if (estado === "Celebrándose") {
+      return '<span class="badge abierta"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.4" fill="#0a7a0a"/></svg>Celebrándose</span>';
+    }
+    return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="#898781" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
   }
 
   function currentFilters() {
@@ -53,11 +59,14 @@
 
   function renderTable(rows) {
     var tbody = document.getElementById("lots-tbody");
+    var empty = document.getElementById("empty-state");
+    empty.style.display = rows.length ? "none" : "flex";
     tbody.innerHTML = rows.map(function (r) {
+      var color = TIPO_BIEN_COLOR[r.tipo_bien] || "#898781";
       return "<tr>" +
         '<td class="lot-id">' + r.id + "</td>" +
         "<td>" + (r.tipo_subasta || "") + "</td>" +
-        "<td>" + (r.tipo_bien || "") + "</td>" +
+        '<td><span class="type-dot" style="background:' + color + '"></span>' + (r.tipo_bien || "") + "</td>" +
         "<td>" + (r.provincia || "") + (r.localidad ? " / " + r.localidad : "") + "</td>" +
         '<td class="lot-desc wrap" title="' + (r.descripcion || "").replace(/"/g, "&quot;") + '">' + (r.descripcion || "").slice(0, 90) + "</td>" +
         '<td class="num-val">' + fmt(r.valor_tasacion) + "</td>" +
@@ -113,7 +122,9 @@
 
   function pollearSync() {
     var btn = document.getElementById("btn-sync");
+    var label = btn.querySelector(".btn-label");
     var statusText = document.getElementById("status-text");
+    var track = document.getElementById("progress-track");
     pollTimer = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.mensaje_sync || "Sincronizando...";
@@ -124,7 +135,8 @@
         if (!e.sincronizando) {
           clearInterval(pollTimer);
           btn.disabled = false;
-          btn.textContent = "Actualizar (traer subastas de hoy)";
+          label.textContent = "Actualizar (traer subastas de hoy)";
+          track.classList.remove("active");
         }
       });
     }, 2000);
@@ -144,16 +156,20 @@
 
   document.getElementById("btn-sync").addEventListener("click", function () {
     var btn = document.getElementById("btn-sync");
+    var label = btn.querySelector(".btn-label");
     var statusText = document.getElementById("status-text");
+    var track = document.getElementById("progress-track");
     btn.disabled = true;
-    btn.textContent = "Actualizando... (2 a 5 minutos)";
+    label.textContent = "Actualizando... (2 a 5 minutos)";
+    track.classList.add("active");
     statusText.textContent = "Sincronizando con BOE Subastas...";
     fetch("/api/sync", { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function () { pollearSync(); })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = "Actualizar (traer subastas de hoy)";
+        label.textContent = "Actualizar (traer subastas de hoy)";
+        track.classList.remove("active");
         statusText.textContent = "Hubo un error al sincronizar, probá de nuevo";
       });
   });

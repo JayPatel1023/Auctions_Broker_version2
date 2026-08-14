@@ -51,7 +51,7 @@
 
       <div class="sidebar-spacer"></div>
       <div class="src-status">
-        <div class="src-row"><span class="dot" id="dot-boe"></span>BOE Subastas</div>
+        <div class="src-row"><span class="dot pulse" id="dot-boe"></span>BOE Subastas</div>
         <div class="src-row"><span class="dot dot-off"></span>Seguridad Social (Fase 2)</div>
         <div class="src-note" id="ultima-sync">Todavía no sincronizado</div>
       </div>
@@ -64,25 +64,33 @@
       </div>
 
       <div class="kpi-grid">
-        <div class="kpi-card">
+        <div class="kpi-card" style="--kpi-color:#2a78d6;--kpi-bg:#eaf2fd;">
+          <div class="kpi-icon"><svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3.5" width="13" height="10" rx="1.5" stroke="#2a78d6" stroke-width="1.4"/><line x1="1.5" y1="6.7" x2="14.5" y2="6.7" stroke="#2a78d6" stroke-width="1.4"/></svg></div>
           <div class="kpi-label">Lotes totales</div>
           <div class="kpi-value" id="kpi-total">0</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" style="--kpi-color:#b8790f;--kpi-bg:#fdf1dc;">
+          <div class="kpi-icon"><svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8.5" r="6" stroke="#b8790f" stroke-width="1.4"/><path d="M8 5v3.5l2.4 1.4" stroke="#b8790f" stroke-width="1.4" stroke-linecap="round"/></svg></div>
           <div class="kpi-label">Próxima apertura</div>
           <div class="kpi-value" id="kpi-proxima">0</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" style="--kpi-color:#0ca30c;--kpi-bg:#e7f6e7;">
+          <div class="kpi-icon"><svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="#0ca30c"/><circle cx="8" cy="8" r="6.3" stroke="#0ca30c" stroke-width="1.4"/></svg></div>
           <div class="kpi-label">Celebrándose</div>
           <div class="kpi-value" id="kpi-celebrando">0</div>
         </div>
-        <div class="kpi-card">
+        <div class="kpi-card" style="--kpi-color:#1baf7a;--kpi-bg:#e3f7ee;">
+          <div class="kpi-icon"><svg viewBox="0 0 16 16" fill="none"><path d="M8 1.5v13M11 4H6.7a2 2 0 000 4H9.3a2 2 0 010 4H5" stroke="#1baf7a" stroke-width="1.4" stroke-linecap="round"/></svg></div>
           <div class="kpi-label">Tasación promedio</div>
           <div class="kpi-value" id="kpi-avg">-</div>
         </div>
       </div>
 
       <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16" fill="none"><circle cx="6.8" cy="6.8" r="4.6" stroke="currentColor" stroke-width="1.4"/><line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Filtros
+        </div>
         <div class="filters-row">
           <select id="f-estado">
             <option value="">Todos los estados</option>
@@ -98,9 +106,16 @@
         </div>
         <div class="count-note" id="table-count">Sin datos todavía. Tocá "Actualizar" para traer subastas reales.</div>
         <div class="filters-row" style="margin-bottom:0;">
-          <button class="btn primary" id="btn-sync">Actualizar (traer subastas de hoy)</button>
-          <button class="btn primary" id="export-xls">Exportar a Excel (.xlsx)</button>
+          <button class="btn primary" id="btn-sync">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 10-1.66 3.94M13.5 8V4.2M13.5 8H9.7" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="btn-label">Actualizar (traer subastas de hoy)</span>
+          </button>
+          <button class="btn primary" id="export-xls">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8.5M8 10.5L5 7.5M8 10.5l3-3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 12v1.5A1.5 1.5 0 004 15h8a1.5 1.5 0 001.5-1.5V12" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Exportar a Excel (.xlsx)
+          </button>
         </div>
+        <div class="progress-track" id="progress-track"><div class="progress-bar"></div></div>
         <div class="sheet-note">El Excel sale con las mismas 3 pestañas de siempre (PROXIMA APERTURA, CELEBRANDOSE, CONCLUIDAS) y las 24 columnas de tu archivo, solo que con los lotes que hayas filtrado.</div>
       </div>
 
@@ -111,6 +126,10 @@
           </thead>
           <tbody id="lots-tbody"></tbody>
         </table>
+        <div class="empty-state" id="empty-state" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="1.4"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <div>Sin resultados. Tocá "Actualizar" para traer subastas reales.</div>
+        </div>
       </div>
     </div>
   </div>
