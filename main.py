@@ -29,6 +29,11 @@ def main():
     db.init_db()
     threading.Thread(target=_run_flask, daemon=True).start()
 
+    # pywebview bloquea descargas por defecto (ALLOW_DOWNLOADS=False). Sin esto,
+    # el boton "Exportar a Excel" no hace nada visible: pywebview cancela la
+    # descarga en silencio.
+    webview.settings['ALLOW_DOWNLOADS'] = True
+
     webview.create_window(
         "Auctions Broker",
         f"http://{HOST}:{PORT}/",
