@@ -14,6 +14,23 @@ import db
 
 log = logging.getLogger("ingest")
 
+# Provincias con mas volumen de subastas, para que el boton "Actualizar" de
+# la Fase 1 termine en unos minutos en vez de recorrer las 52 provincias con
+# detalle completo por lote (eso queda para el barrido historico de Fase 2).
+PRINCIPALES_PROVINCIAS = [
+    "28",  # Madrid
+    "08",  # Barcelona
+    "46",  # Valencia
+    "41",  # Sevilla
+    "29",  # Málaga
+    "03",  # Alicante
+    "30",  # Murcia
+    "50",  # Zaragoza
+    "15",  # A Coruña
+    "48",  # Bizkaia
+]
+LIMITE_POR_COMBO_DEFECTO = 12
+
 
 def _lotes_a_entero(valor):
     if not valor:

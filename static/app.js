@@ -97,15 +97,35 @@
       });
   }
 
+  var pollTimer = null;
+
   function actualizarEstadoConexion() {
-    fetch("/api/estado")
+    return fetch("/api/estado")
       .then(function (r) { return r.json(); })
       .then(function (e) {
         var nota = document.getElementById("ultima-sync");
         nota.textContent = e.boe_ultima_sync
           ? "Última sincronización: " + e.boe_ultima_sync.replace("T", " ")
           : "Todavía no sincronizado";
+        return e;
       });
+  }
+
+  function pollearSync() {
+    var btn = document.getElementById("btn-sync");
+    var statusText = document.getElementById("status-text");
+    pollTimer = setInterval(function () {
+      actualizarEstadoConexion().then(function (e) {
+        statusText.textContent = e.mensaje_sync || "Sincronizando...";
+        if (!e.sincronizando) {
+          clearInterval(pollTimer);
+          btn.disabled = false;
+          btn.textContent = "Actualizar (traer subastas de hoy)";
+          cargarOpciones();
+          cargar();
+        }
+      });
+    }, 2000);
   }
 
   [fEstado, fTipoSub, fTipoBien, fProv].forEach(function (el) { el.addEventListener("change", cargar); });
@@ -124,18 +144,11 @@
     var btn = document.getElementById("btn-sync");
     var statusText = document.getElementById("status-text");
     btn.disabled = true;
-    btn.textContent = "Actualizando... (puede tardar unos minutos)";
+    btn.textContent = "Actualizando... (2 a 5 minutos)";
     statusText.textContent = "Sincronizando con BOE Subastas...";
     fetch("/api/sync", { method: "POST" })
       .then(function (r) { return r.json(); })
-      .then(function (res) {
-        btn.disabled = false;
-        btn.textContent = "Actualizar (traer subastas de hoy)";
-        statusText.textContent = "Listo - " + res.lotes_procesados + " lotes procesados";
-        cargarOpciones();
-        cargar();
-        actualizarEstadoConexion();
-      })
+      .then(function () { pollearSync(); })
       .catch(function () {
         btn.disabled = false;
         btn.textContent = "Actualizar (traer subastas de hoy)";

@@ -10,13 +10,13 @@ es Fase 2).
 import logging
 import os
 import tempfile
+import threading
 
 from flask import Flask, jsonify, request, send_file, render_template
 
 import db
 import export
-from ingest import sync_boe
-from scraper.boe import PROVINCIAS
+from ingest import sync_boe, PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")
@@ -24,6 +24,30 @@ log = logging.getLogger("app")
 app = Flask(__name__)
 
 ESTADO_ACTIVOS_COD = ["PU", "EJ"]
+
+sync_lock = threading.Lock()
+sync_status = {"en_progreso": False, "mensaje": "", "lotes_procesados": 0}
+
+
+def _sync_en_segundo_plano():
+    def progreso(msg):
+        sync_status["mensaje"] = msg
+
+    try:
+        total = sync_boe(
+            provincias=PRINCIPALES_PROVINCIAS,
+            estados=ESTADO_ACTIVOS_COD,
+            con_detalle=True,
+            limite_por_combo=LIMITE_POR_COMBO_DEFECTO,
+            progreso=progreso,
+        )
+        sync_status["lotes_procesados"] = total
+        sync_status["mensaje"] = f"Listo - {total} lotes procesados"
+    except Exception as e:
+        log.exception("Error durante la sincronizacion")
+        sync_status["mensaje"] = f"Error: {e}"
+    finally:
+        sync_status["en_progreso"] = False
 
 
 @app.route("/")
@@ -78,12 +102,16 @@ def api_export():
 
 @app.route("/api/sync", methods=["POST"])
 def api_sync():
-    """Sincronizacion manual (Fase 1). Body opcional: {"provincias": ["28", ...]}."""
-    body = request.get_json(silent=True) or {}
-    provincias = body.get("provincias") or list(PROVINCIAS.keys())
-    total = sync_boe(provincias=provincias, estados=ESTADO_ACTIVOS_COD, con_detalle=True)
-    estado = db.get_sync_state("BOE Subastas")
-    return jsonify({"lotes_procesados": total, "ultima_sincronizacion": estado["last_full_sync"] if estado else None})
+    """Arranca la sincronizacion en un hilo aparte y devuelve al toque.
+    El frontend consulta el avance con /api/estado."""
+    with sync_lock:
+        if sync_status["en_progreso"]:
+            return jsonify({"status": "ya_en_progreso"}), 409
+        sync_status["en_progreso"] = True
+        sync_status["mensaje"] = "Arrancando..."
+        sync_status["lotes_procesados"] = 0
+        threading.Thread(target=_sync_en_segundo_plano, daemon=True).start()
+    return jsonify({"status": "iniciado"})
 
 
 @app.route("/api/estado")
@@ -93,6 +121,8 @@ def api_estado():
     return jsonify({
         "total_lotes": total,
         "boe_ultima_sync": boe["last_full_sync"] if boe else None,
+        "sincronizando": sync_status["en_progreso"],
+        "mensaje_sync": sync_status["mensaje"],
     })
 
 
