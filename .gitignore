@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+auctions_broker.db
+prueba_export.xlsx
+*.xlsx
+.venv/
+venv/
