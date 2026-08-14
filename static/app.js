@@ -117,12 +117,14 @@
     pollTimer = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.mensaje_sync || "Sincronizando...";
+        // refrescar tabla/KPIs en cada tick, no solo al terminar, para que
+        // se vea crecer en vivo en vez de quedar en "0" hasta el final
+        cargarOpciones();
+        cargar();
         if (!e.sincronizando) {
           clearInterval(pollTimer);
           btn.disabled = false;
           btn.textContent = "Actualizar (traer subastas de hoy)";
-          cargarOpciones();
-          cargar();
         }
       });
     }, 2000);
