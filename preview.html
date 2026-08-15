@@ -109,7 +109,7 @@ input[type=text]{cursor:text;min-width:170px;}
 @keyframes slide{0%{margin-left:-35%;}100%{margin-left:100%;}}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;}
-thead th{text-align:left;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-muted);padding:10px 10px;border-bottom:2px solid var(--grid);font-weight:700;white-space:normal;line-height:1.35;word-break:break-word;}
+thead th{text-align:left;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-muted);padding:10px 10px;border-bottom:2px solid var(--grid);font-weight:700;white-space:normal;line-height:1.35;word-break:normal;overflow-wrap:normal;}
 tbody td{padding:11px 12px;border-bottom:1px solid var(--grid);color:var(--ink-2);white-space:normal;word-break:break-word;overflow-wrap:break-word;}
 tbody td.lot-id, tbody td.num-val{white-space:nowrap;}
 tbody td.wrap{line-height:1.4;}
@@ -171,6 +171,10 @@ tbody tr:hover{background:var(--accent-soft);}
   .filters-row .btn{width:100%;justify-content:center;}
   .card{padding:14px;}
   .col-opt3{display:none;}
+  thead th{font-size:9.5px;padding:8px 6px;}
+  tbody td{padding:9px 6px;font-size:12px;}
+  .badge{font-size:9.5px;padding:3px 6px;gap:3px;}
+  .badge svg{width:8px;height:8px;}
 }
 </style>
 </head>
@@ -269,9 +273,9 @@ tbody tr:hover{background:var(--accent-soft);}
         <table>
           <colgroup>
             <col style="width:9%"><col class="col-opt" style="width:9%"><col class="col-opt3" style="width:9%">
-            <col class="col-opt" style="width:9%"><col style="width:18%"><col style="width:9%">
+            <col class="col-opt" style="width:9%"><col style="width:15%"><col style="width:9%">
             <col class="col-opt2" style="width:9%"><col class="col-opt2" style="width:9%">
-            <col class="col-opt" style="width:8%"><col style="width:11%">
+            <col class="col-opt" style="width:8%"><col style="width:14%">
           </colgroup>
           <thead><tr><th>Id</th><th class="col-opt">Tipo de subasta</th><th class="col-opt3">Tipo bien</th><th class="col-opt">Provincia / Localidad</th><th>Descripción</th><th>Tasación</th><th class="col-opt2">Valor subasta</th><th class="col-opt2">Puja mínima</th><th class="col-opt">Cierra</th><th>Estado</th></tr></thead>
           <tbody id="lots-tbody"></tbody>
