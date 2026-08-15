@@ -136,6 +136,8 @@
     var label = btn.querySelector(".btn-label");
     var statusText = document.getElementById("status-text");
     var track = document.getElementById("progress-track");
+    btn.disabled = true;
+    track.classList.add("active");
     pollTimer = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.mensaje_sync || "Sincronizando...";
@@ -151,6 +153,30 @@
         }
       });
     }, 2000);
+  }
+
+  var pollTimerHistorico = null;
+
+  function pollearHistorico() {
+    var btn = document.getElementById("btn-historico");
+    var label = btn.querySelector(".btn-label");
+    var statusText = document.getElementById("historico-status");
+    var track = document.getElementById("progress-track-historico");
+    btn.disabled = true;
+    track.classList.add("active");
+    pollTimerHistorico = setInterval(function () {
+      actualizarEstadoConexion().then(function (e) {
+        statusText.textContent = e.historico_mensaje || "Descargando histórico...";
+        cargarOpciones();
+        cargar();
+        if (!e.historico_en_progreso) {
+          clearInterval(pollTimerHistorico);
+          btn.disabled = false;
+          label.textContent = "Descargar histórico completo";
+          track.classList.remove("active");
+        }
+      });
+    }, 3000);
   }
 
   [fEstado, fTipoSub, fTipoBien, fProv].forEach(function (el) { el.addEventListener("change", cargar); });
@@ -185,7 +211,27 @@
       });
   });
 
+  document.getElementById("btn-historico").addEventListener("click", function () {
+    var btn = document.getElementById("btn-historico");
+    var label = btn.querySelector(".btn-label");
+    label.textContent = "Descargando histórico...";
+    fetch("/api/sync_historico", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function () { pollearHistorico(); })
+      .catch(function () {
+        btn.disabled = false;
+        label.textContent = "Descargar histórico completo";
+        document.getElementById("historico-status").textContent = "Hubo un error, probá de nuevo";
+      });
+  });
+
   cargarOpciones();
   cargar();
-  actualizarEstadoConexion();
+  actualizarEstadoConexion().then(function (e) {
+    // si el barrido historico ya estaba corriendo (p.ej. quedo prendido
+    // de una sesion anterior de la app), retomar el poll en vez de
+    // mostrar el boton como si no hubiera nada pasando
+    if (e.historico_en_progreso) pollearHistorico();
+    if (e.sincronizando) pollearSync();
+  });
 })();

@@ -33,7 +33,7 @@ else:
 import webview
 
 import db
-from app import app
+from app import app, iniciar_sync_si_hace_falta
 
 log = logging.getLogger("main")
 
@@ -48,6 +48,12 @@ def _run_flask():
 def main():
     db.init_db()
     threading.Thread(target=_run_flask, daemon=True).start()
+
+    # Descarga automatica diaria: si la ultima sincronizacion tiene mas de
+    # un dia (o nunca se hizo), arranca sola en segundo plano al abrir la
+    # app, sin que el usuario tenga que tocar "Actualizar". Solo corre
+    # mientras la app este abierta, como quedo hablado con el cliente.
+    iniciar_sync_si_hace_falta()
 
     # pywebview bloquea descargas por defecto (ALLOW_DOWNLOADS=False). Sin esto,
     # el boton "Exportar a Excel" no hace nada visible: pywebview cancela la

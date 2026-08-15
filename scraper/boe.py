@@ -125,30 +125,37 @@ class BOEScraper:
 
     # ---------- listado ----------
 
-    def buscar(self, provincia_cod: str, estado_cod: str):
-        """Busca lotes para una combinacion provincia x estado.
-        Devuelve (lista_de_lotes_resumidos, hay_mas_paginas)."""
+    def buscar(self, provincia_cod: str, estado_cod: str, fecha_desde: str = None, fecha_hasta: str = None):
+        """Busca lotes para una combinacion provincia x estado, opcionalmente
+        acotado a un rango de fecha de conclusion (formato YYYY-MM-DD, es
+        lo que espera el sitio pese a mostrar DD/MM/YYYY en pantalla).
+        Devuelve (lista_de_lotes_resumidos, hay_mas_paginas, excesivo)."""
         fields = self._base_fields()
         fields["dato[8]"] = provincia_cod
         fields["dato[2]"] = estado_cod
+        if fecha_desde or fecha_hasta:
+            fields["campo[17]"] = "SUBASTA.FECHA_FIN"
+            fields["dato[17][0]"] = fecha_desde or ""
+            fields["dato[17][1]"] = fecha_hasta or ""
 
         try:
             resp = self.session.post(SEARCH_URL, data=fields, timeout=30)
             resp.raise_for_status()
         except requests.RequestException as e:
             log.error(f"Error consultando provincia={provincia_cod} estado={estado_cod}: {e}")
-            return [], False
+            return [], False, False
 
         if EXCESO_MSG in resp.text:
             log.warning(
                 f"provincia={PROVINCIAS.get(provincia_cod, provincia_cod)} "
-                f"estado={ESTADOS.get(estado_cod, estado_cod)}: demasiados resultados"
+                f"estado={ESTADOS.get(estado_cod, estado_cod)} "
+                f"fecha={fecha_desde}..{fecha_hasta}: demasiados resultados"
             )
-            return [], False
+            return [], False, True
 
         lotes, hay_mas = self._parse_listado(resp.text, provincia_cod, estado_cod)
         self._wait()
-        return lotes, hay_mas
+        return lotes, hay_mas, False
 
     def _parse_listado(self, html: str, provincia_cod: str, estado_cod: str):
         soup = BeautifulSoup(html, "html.parser")
@@ -282,7 +289,7 @@ class BOEScraper:
         provincias = provincias or list(PROVINCIAS.keys())
         todos = []
         for prov_cod in provincias:
-            lotes, _ = self.buscar(prov_cod, estado_cod)
+            lotes, _, _ = self.buscar(prov_cod, estado_cod)
             if limite_por_combo:
                 lotes = lotes[:limite_por_combo]
             if lotes:
@@ -297,7 +304,7 @@ class BOEScraper:
 
 if __name__ == "__main__":
     scraper = BOEScraper()
-    lotes, hay_mas = scraper.buscar("28", "EJ")
+    lotes, hay_mas, excesivo = scraper.buscar("28", "EJ")
     print(f"{len(lotes)} lotes encontrados en el listado (hay mas paginas: {hay_mas})")
     if lotes:
         primero = lotes[0]

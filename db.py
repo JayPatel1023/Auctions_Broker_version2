@@ -187,7 +187,7 @@ def set_sync_state(fuente, last_full_sync=None, last_combo=None):
         INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, ?)
         ON CONFLICT(fuente) DO UPDATE SET
             last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
-            last_combo = excluded.last_combo
+            last_combo = COALESCE(excluded.last_combo, sync_state.last_combo)
         """,
         (fuente, last_full_sync, last_combo),
     )

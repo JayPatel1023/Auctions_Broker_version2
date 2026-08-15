@@ -99,6 +99,22 @@
         <div class="sheet-note">El Excel sale con las mismas 3 pestañas de siempre (PROXIMA APERTURA, CELEBRANDOSE, CONCLUIDAS) y las 24 columnas de tu archivo, solo que con los lotes que hayas filtrado.</div>
       </div>
 
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><line x1="1.5" y1="6" x2="14.5" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="4.5" y1="1" x2="4.5" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="11.5" y1="1" x2="11.5" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Histórico completo
+        </div>
+        <div class="sheet-note" style="margin:0 0 12px;padding:0;border:none;">Trae todas las subastas de años anteriores de las 2 fuentes, no solo las de hoy. Es mucho volumen, así que corre de a poco en segundo plano mientras tengas la app abierta — la podés cerrar y retomar cuando quieras, sigue justo donde quedó.</div>
+        <div class="filters-row" style="margin-bottom:0;">
+          <button class="btn ghost" id="btn-historico">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 10-1.66 3.94M13.5 8V4.2M13.5 8H9.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="btn-label">Descargar histórico completo</span>
+          </button>
+        </div>
+        <div class="progress-track" id="progress-track-historico"><div class="progress-bar"></div></div>
+        <div class="count-note" id="historico-status" style="margin-bottom:0;">Todavía no se corrió.</div>
+      </div>
+
       <div class="card table-wrap" style="padding:0;">
         <table>
           <thead>

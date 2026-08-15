@@ -150,6 +150,32 @@ class SegSocialScraper:
         self._wait()
         return lotes
 
+    def buscar_todas_paginas(self, provincias, tipos_bien=None, max_paginas=100):
+        """Igual que buscar(), pero recorre todas las paginas de resultados
+        en vez de quedarse solo con la primera (para el barrido historico).
+        El sitio no tiene limite de resultados como BOE, solo pagina de a 20."""
+        primera = self.buscar(provincias, tipos_bien)
+        todos = list(primera)
+        if not primera:
+            return todos
+
+        pagina = 2
+        while pagina <= max_paginas:
+            try:
+                resp = self.session.get(BASE, params={"pagina": pagina, "opcion": 7}, timeout=30)
+                resp.encoding = "iso-8859-1"
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                log.warning(f"Error en pagina {pagina}: {e}")
+                break
+            nuevos = self._parse_listado(resp.text)
+            if not nuevos:
+                break
+            todos.extend(nuevos)
+            self._wait()
+            pagina += 1
+        return todos
+
     def _parse_listado(self, html):
         soup = BeautifulSoup(html, "html.parser")
         lotes = []

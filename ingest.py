@@ -1,20 +1,29 @@
 """
 Auctions Broker - orquestacion: scraper -> base de datos.
 
-BOE Subastas + Seguridad Social, solo estados activos (Proxima apertura /
-Celebrandose). La descarga automatica diaria y el barrido del historico
-completo son el siguiente paso, todavia no estan acá.
+BOE Subastas + Seguridad Social. Dos modos:
+- sync_boe / sync_seg_social: rapido, solo estados activos, para el boton
+  "Actualizar" (piensa en minutos).
+- sync_boe_historico / sync_seg_social_historico: barrido completo,
+  resumible via sync_state (piensa en horas, se retoma solo donde quedo
+  la ultima vez que se ejecuto).
 """
 
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
-from scraper.boe import BOEScraper, PROVINCIAS, ESTADOS_ACTIVOS
+from scraper.boe import BOEScraper, PROVINCIAS, ESTADOS_ACTIVOS, ESTADOS_HISTORICOS, ESTADOS
 from scraper.seg_social import SegSocialScraper, TIPOS_BIEN as SS_TIPOS_BIEN, _inferir_estado
 import db
 
 log = logging.getLogger("ingest")
+
+# Desde cuando arranca el barrido historico de BOE por defecto. El sitio no
+# tiene forma de preguntar "desde cuando hay datos", asi que se fija una
+# fecha razonable (el archivo Excel viejo del cliente es de nov. 2021) en
+# vez de ir año por año a ciegas hasta encontrar el principio.
+HISTORICO_DESDE = "2021-01-01"
 
 # Provincias con mas volumen de subastas, para que el boton "Actualizar" de
 # la Fase 1 termine en unos minutos en vez de recorrer las 52 provincias con
@@ -154,7 +163,7 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
     total = 0
     for estado_cod in estados:
         for prov_cod in provincias:
-            lotes, _ = scraper.buscar(prov_cod, estado_cod)
+            lotes, _, _ = scraper.buscar(prov_cod, estado_cod)
             if limite_por_combo:
                 lotes = lotes[:limite_por_combo]
             if not lotes:
@@ -170,6 +179,111 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
                 total += 1
 
     db.set_sync_state("BOE Subastas", last_full_sync=datetime.now().isoformat(timespec="seconds"))
+    return total
+
+
+# ---------- barrido historico (resumible, corre en segundo plano mientras
+# la app este abierta, y sigue donde quedo la proxima vez que se abra) ----------
+
+def _mitad_fecha(desde: str, hasta: str) -> str:
+    d1, d2 = date.fromisoformat(desde), date.fromisoformat(hasta)
+    return (d1 + (d2 - d1) // 2).isoformat()
+
+
+def _buscar_boe_fragmentado(scraper, provincia_cod, estado_cod, desde, hasta, profundidad=0, max_profundidad=6):
+    """BOE tira 'excesivo' si una combinacion provincia+estado+rango de
+    fecha trae de mas. Para el barrido historico (rangos de años) hace
+    falta partir el rango a la mitad las veces que haga falta hasta que
+    cada pedazo entre bajo el limite."""
+    lotes, _, excesivo = scraper.buscar(provincia_cod, estado_cod, fecha_desde=desde, fecha_hasta=hasta)
+    if not excesivo or profundidad >= max_profundidad or desde == hasta:
+        return lotes
+    mitad = _mitad_fecha(desde, hasta)
+    siguiente = (date.fromisoformat(mitad) + timedelta(days=1)).isoformat()
+    izquierda = _buscar_boe_fragmentado(scraper, provincia_cod, estado_cod, desde, mitad, profundidad + 1, max_profundidad)
+    derecha = _buscar_boe_fragmentado(scraper, provincia_cod, estado_cod, siguiente, hasta, profundidad + 1, max_profundidad)
+    return izquierda + derecha
+
+
+def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_detalle=True, progreso=None, continuar=True):
+    """Barrido historico completo de BOE (estados PC/FS = Concluida).
+    Resumible: guarda en sync_state el ultimo combo provincia+estado
+    terminado y la proxima vez arranca justo despues de ahi, en vez de
+    repetir todo desde cero."""
+    db.init_db()
+    hasta = hasta or date.today().isoformat()
+    scraper = BOEScraper()
+    provincias = provincias or list(PROVINCIAS.keys())
+    combos = [(p, e) for e in ESTADOS_HISTORICOS for p in provincias]
+
+    ultimo = None
+    if continuar:
+        prev = db.get_sync_state("BOE Subastas Historico")
+        ultimo = prev["last_combo"] if prev else None
+    saltando = ultimo is not None
+
+    total = 0
+    for prov_cod, estado_cod in combos:
+        clave = f"{prov_cod}:{estado_cod}"
+        if saltando:
+            if clave == ultimo:
+                saltando = False
+            continue
+
+        lotes = _buscar_boe_fragmentado(scraper, prov_cod, estado_cod, desde, hasta)
+        if lotes:
+            msg = f"Histórico BOE - {PROVINCIAS[prov_cod]} / {ESTADOS[estado_cod]}: {len(lotes)} lotes"
+            log.info(msg)
+            if progreso:
+                progreso(msg)
+            for lote in lotes:
+                if con_detalle:
+                    lote.update(scraper.detalle(lote["id"]))
+                db.upsert_lote(_lote_a_fila_db(lote))
+                total += 1
+
+        db.set_sync_state("BOE Subastas Historico", last_combo=clave)
+
+    db.set_sync_state("BOE Subastas Historico", last_full_sync=datetime.now().isoformat(timespec="seconds"))
+    return total
+
+
+def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, continuar=True):
+    """Barrido completo de Seguridad Social: todas las provincias, todas
+    las paginas de resultados (el sitio no tiene limite de resultados
+    como BOE, solo pagina de a 20). Resumible igual que sync_boe_historico."""
+    db.init_db()
+    scraper = SegSocialScraper()
+    provincias = provincias or list(PROVINCIAS.keys())
+
+    ultimo = None
+    if continuar:
+        prev = db.get_sync_state("Seguridad Social Historico")
+        ultimo = prev["last_combo"] if prev else None
+    saltando = ultimo is not None
+
+    total = 0
+    for prov_cod in provincias:
+        if saltando:
+            if prov_cod == ultimo:
+                saltando = False
+            continue
+
+        lotes = scraper.buscar_todas_paginas([prov_cod], tipos_bien=list(SS_TIPOS_BIEN.keys()))
+        if lotes:
+            msg = f"Histórico Seguridad Social - provincia {PROVINCIAS.get(prov_cod, prov_cod)}: {len(lotes)} lotes"
+            log.info(msg)
+            if progreso:
+                progreso(msg)
+            for lote in lotes:
+                if con_detalle:
+                    lote.update(scraper.detalle(lote["emb_id"]))
+                db.upsert_lote(_lote_seg_social_a_fila_db(lote))
+                total += 1
+
+        db.set_sync_state("Seguridad Social Historico", last_combo=prov_cod)
+
+    db.set_sync_state("Seguridad Social Historico", last_full_sync=datetime.now().isoformat(timespec="seconds"))
     return total
 
 

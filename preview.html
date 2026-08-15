@@ -280,6 +280,22 @@ tbody tr:hover{background:var(--accent-soft);}
         <div class="sheet-note">El Excel sale con las mismas 3 pestañas de siempre (PROXIMA APERTURA, CELEBRANDOSE, CONCLUIDAS) y las 24 columnas de tu archivo, solo que con los lotes que hayas filtrado.</div>
       </div>
 
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><line x1="1.5" y1="6" x2="14.5" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="4.5" y1="1" x2="4.5" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="11.5" y1="1" x2="11.5" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Histórico completo
+        </div>
+        <div class="sheet-note" style="margin:0 0 12px;padding:0;border:none;">Trae todas las subastas de años anteriores de las 2 fuentes, no solo las de hoy. Es mucho volumen, así que corre de a poco en segundo plano mientras tengas la app abierta — la podés cerrar y retomar cuando quieras, sigue justo donde quedó.</div>
+        <div class="filters-row" style="margin-bottom:0;">
+          <button class="btn ghost" id="btn-historico">
+            <svg viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 10-1.66 3.94M13.5 8V4.2M13.5 8H9.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="btn-label">Descargar histórico completo</span>
+          </button>
+        </div>
+        <div class="progress-track" id="progress-track-historico"><div class="progress-bar"></div></div>
+        <div class="count-note" id="historico-status" style="margin-bottom:0;">Todavía no se corrió.</div>
+      </div>
+
       <div class="card table-wrap" style="padding:0;">
         <table>
           <thead><tr><th>Id</th><th class="col-opt">Tipo de subasta</th><th class="col-opt3">Tipo bien</th><th class="col-opt">Provincia / Localidad</th><th>Descripción</th><th>Tasación</th><th class="col-opt2">Valor subasta</th><th class="col-opt2">Puja mínima</th><th class="col-opt">Cierra</th><th>Estado</th></tr></thead>
@@ -395,12 +411,23 @@ tbody tr:hover{background:var(--accent-soft);}
     var btn=document.getElementById("btn-sync"), label=btn.querySelector(".btn-label"),
         statusText=document.getElementById("status-text"), track=document.getElementById("progress-track");
     btn.disabled=true; label.textContent="Actualizando... (2 a 5 minutos)"; track.classList.add("active");
-    statusText.textContent="Sincronizando con BOE Subastas...";
+    statusText.textContent="Sincronizando con BOE Subastas y Seguridad Social...";
     setTimeout(function(){
       synced=true; render();
       btn.disabled=false; label.textContent="Actualizar (traer subastas de hoy)"; track.classList.remove("active");
       statusText.textContent="Listo - "+LOTS.length+" lotes procesados (simulado)";
     }, 1800);
+  });
+
+  document.getElementById("btn-historico").addEventListener("click",function(){
+    var btn=document.getElementById("btn-historico"), label=btn.querySelector(".btn-label"),
+        statusText=document.getElementById("historico-status"), track=document.getElementById("progress-track-historico");
+    btn.disabled=true; label.textContent="Descargando histórico..."; track.classList.add("active");
+    statusText.textContent="Histórico BOE - Madrid / Concluida: 46 lotes (simulado)";
+    setTimeout(function(){
+      btn.disabled=false; label.textContent="Descargar histórico completo"; track.classList.remove("active");
+      statusText.textContent="Pasada completa - 1.240 lotes nuevos (simulado)";
+    }, 2200);
   });
 
   document.getElementById("export-xls").addEventListener("click",function(){
