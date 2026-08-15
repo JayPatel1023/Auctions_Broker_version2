@@ -257,10 +257,15 @@ class BOEScraper:
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        h4 = soup.find("h4", string=re.compile(r"^Bien 1"))
+        # La numeracion del primer bien varia segun el tipo de subasta: la
+        # mayoria arranca en "Bien 1", pero notarial hipotecaria y algunas
+        # de recaudacion tributaria arrancan en "Bien 0" (confirmado en
+        # vivo). Sin este fallback esos lotes quedaban sin tipo_bien ni
+        # descripcion.
+        h4 = soup.find("h4", string=re.compile(r"^Bien \d+"))
         tipo_bien = ""
         if h4:
-            m = re.search(r"Bien 1 - ([^(]+)", h4.get_text())
+            m = re.search(r"Bien \d+ - ([^(]+)", h4.get_text())
             if m:
                 tipo_bien = m.group(1).strip()
 

@@ -253,6 +253,11 @@ tbody tr:hover{background:var(--accent-soft);}
       <div class="card">
         <div class="card-title"><svg viewBox="0 0 16 16" fill="none"><circle cx="6.8" cy="6.8" r="4.6" stroke="currentColor" stroke-width="1.4"/><line x1="10.2" y1="10.2" x2="14" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>Filtros</div>
         <div class="filters-row">
+          <select id="f-fuente">
+            <option value="">Todas las fuentes</option>
+            <option value="BOE Subastas">BOE Subastas</option>
+            <option value="Seguridad Social">Seguridad Social</option>
+          </select>
           <select id="f-estado">
             <option value="">Todos los estados</option>
             <option value="Próxima apertura">Próxima apertura</option>
@@ -335,11 +340,11 @@ tbody tr:hover{background:var(--accent-soft);}
     {id:"SUB-AT-2026-888888",estado:"Próxima apertura",tipo_subasta:"AGENCIA TRIBUTARIA",tipo_bien:"Vehículo",lotes:1,provincia:"Sevilla",localidad:"Sevilla",direccion:"",descripcion:"Furgón Renault Trafic, matrícula 4021KWM",referencia_catastral:"",marca:"RENAULT",modelo:"TRAFIC",matricula:"4021KWM",cantidad_reclamada:null,valor_tasacion:9800,valor_subasta:9800,tramos_entre_pujas:200,puja_minima:null,importe_deposito:490,nombre:"Agencia Tributaria - Sevilla",fecha_inicio:"",fecha_conclusion:"30-08-2026 18:00:00"},
     {id:"SUB-JC-2026-777777",estado:"Concluida",tipo_subasta:"JUDICIAL CONCURSAL",tipo_bien:"Bien mueble",lotes:3,provincia:"Valencia/València",localidad:"",direccion:"",descripcion:"Lote de maquinaria de taller mecánico",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:8700,valor_subasta:8700,tramos_entre_pujas:170,puja_minima:null,importe_deposito:435,nombre:"Juzgado de lo Mercantil n. 2 de Valencia",fecha_inicio:"",fecha_conclusion:"21-06-2026 18:00:00"},
     {id:"SUB-JV-2026-261265",estado:"Celebrándose",tipo_subasta:"JUDICIAL VOLUNTARIA",tipo_bien:"Inmueble",lotes:1,provincia:"Madrid",localidad:"Madrid",direccion:"Calle Camarena 184",descripcion:"Piso planta 5a, 28047 Madrid, inscripción registro de la propiedad n. 9",referencia_catastral:"1765234TJ5116N0001SI",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:213300,valor_subasta:213300,tramos_entre_pujas:4260,puja_minima:null,importe_deposito:10665,nombre:"Sección Civil TI Madrid",fecha_inicio:"",fecha_conclusion:"17-08-2026 18:00:00"},
-    {id:"SUB-RC-2026-264060",estado:"Celebrándose",tipo_subasta:"RECAUDACIÓN TRIBUTARIA",tipo_bien:"Vehículo",lotes:1,provincia:"Alicante/Alacant",localidad:"Alicante",direccion:"",descripcion:"Turismo BMW Serie 3, matrícula 1187JKL",referencia_catastral:"",marca:"BMW",modelo:"SERIE 3",matricula:"1187JKL",cantidad_reclamada:null,valor_tasacion:12500,valor_subasta:12500,tramos_entre_pujas:250,puja_minima:6250,importe_deposito:625,nombre:"Tesorería General de la Seguridad Social",fecha_inicio:"",fecha_conclusion:"25-08-2026 18:00:00"},
+    {id:"SS-264",estado:"Celebrándose",tipo_subasta:"RECAUDACIÓN SEGURIDAD SOCIAL",tipo_bien:"Vehículo",lotes:1,provincia:"Alicante/Alacant",localidad:"Alicante",direccion:"",descripcion:"Turismo BMW Serie 3, matrícula 1187JKL",referencia_catastral:"",marca:"BMW",modelo:"SERIE 3",matricula:"1187JKL",cantidad_reclamada:null,valor_tasacion:12500,valor_subasta:12500,tramos_entre_pujas:250,puja_minima:6250,importe_deposito:625,nombre:"Tesorería General de la Seguridad Social",fecha_inicio:"",fecha_conclusion:"25-08-2026 18:00:00"},
     {id:"SUB-NH-2026-1626089",estado:"Celebrándose",tipo_subasta:"NOTARIAL HIPOTECARIA",tipo_bien:"Inmueble",lotes:1,provincia:"Málaga",localidad:"",direccion:"",descripcion:"Finca urbana en Málaga capital",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:317736.73,valor_subasta:317736.73,tramos_entre_pujas:6350,puja_minima:null,importe_deposito:15886.84,nombre:"Notaría de Málaga",fecha_inicio:"",fecha_conclusion:"01-09-2026 18:00:00"}
   ];
 
-  var fEstado=document.getElementById("f-estado"), fTipoSub=document.getElementById("f-tiposub"),
+  var fFuente=document.getElementById("f-fuente"), fEstado=document.getElementById("f-estado"), fTipoSub=document.getElementById("f-tiposub"),
       fTipoBien=document.getElementById("f-tipobien"), fProv=document.getElementById("f-prov"),
       fText=document.getElementById("f-text");
   var synced = false;
@@ -357,8 +362,11 @@ tbody tr:hover{background:var(--accent-soft);}
     return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
   }
 
+  function fuenteDe(l){ return l.id.indexOf("SS-")===0 ? "Seguridad Social" : "BOE Subastas"; }
+
   function filtrar(){
     return LOTS.filter(function(l){
+      if(fFuente.value && fuenteDe(l)!==fFuente.value) return false;
       if(fEstado.value && l.estado!==fEstado.value) return false;
       if(fTipoSub.value && l.tipo_subasta!==fTipoSub.value) return false;
       if(fTipoBien.value && l.tipo_bien!==fTipoBien.value) return false;
@@ -401,10 +409,10 @@ tbody tr:hover{background:var(--accent-soft);}
     }).join("");
   }
 
-  [fEstado,fTipoSub,fTipoBien,fProv].forEach(function(el){el.addEventListener("change",render);});
+  [fFuente,fEstado,fTipoSub,fTipoBien,fProv].forEach(function(el){el.addEventListener("change",render);});
   fText.addEventListener("input",render);
   document.getElementById("f-clear").addEventListener("click",function(){
-    fEstado.value="";fTipoSub.value="";fTipoBien.value="";fProv.value="";fText.value="";render();
+    fFuente.value="";fEstado.value="";fTipoSub.value="";fTipoBien.value="";fProv.value="";fText.value="";render();
   });
 
   document.getElementById("btn-sync").addEventListener("click",function(){

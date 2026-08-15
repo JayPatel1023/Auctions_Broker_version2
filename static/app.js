@@ -19,6 +19,7 @@
     "Bizkaia","Zamora","Zaragoza","Ceuta","Melilla"
   ];
 
+  var fFuente = document.getElementById("f-fuente");
   var fEstado = document.getElementById("f-estado");
   var fTipoSub = document.getElementById("f-tiposub");
   var fTipoBien = document.getElementById("f-tipobien");
@@ -50,6 +51,7 @@
 
   function currentFilters() {
     var p = new URLSearchParams();
+    if (fFuente.value) p.set("fuente", fFuente.value);
     if (fEstado.value) p.set("estado", fEstado.value);
     if (fTipoSub.value) p.set("tipo_subasta", fTipoSub.value);
     if (fTipoBien.value) p.set("tipo_bien", fTipoBien.value);
@@ -179,10 +181,10 @@
     }, 3000);
   }
 
-  [fEstado, fTipoSub, fTipoBien, fProv].forEach(function (el) { el.addEventListener("change", cargar); });
+  [fFuente, fEstado, fTipoSub, fTipoBien, fProv].forEach(function (el) { el.addEventListener("change", cargar); });
   fText.addEventListener("input", cargar);
   document.getElementById("f-clear").addEventListener("click", function () {
-    fEstado.value = ""; fTipoSub.value = ""; fTipoBien.value = ""; fProv.value = ""; fText.value = "";
+    fFuente.value = ""; fEstado.value = ""; fTipoSub.value = ""; fTipoBien.value = ""; fProv.value = ""; fText.value = "";
     cargar();
   });
 
