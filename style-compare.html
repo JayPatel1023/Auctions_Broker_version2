@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="stripe">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auctions Broker - comparar estilos</title>
+<style>
+:root{
+  --surface:#ffffff;--plane:#f6f9fc;--panel:#ffffff;--ink:#0a2540;--ink-2:#425466;--ink-muted:#8792a2;
+  --grid:#e6ebf1;--accent:#635bff;--accent-2:#4b45c6;--accent-soft:#eeedff;--good:#1a9f5c;--warn:#b8790f;
+  --warn-bg:#fdf1dc;--good-bg:#e5f7ed;--closed-bg:#eef1f4;--radius:10px;--font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --shadow:0 1px 2px rgba(10,37,64,0.04), 0 6px 16px rgba(10,37,64,0.06);
+}
+html[data-theme="linear"]{
+  --surface:#08090a;--plane:#050506;--panel:#0f1011;--ink:#f7f8f8;--ink-2:#9a9ea6;--ink-muted:#65686f;
+  --grid:#1c1d1f;--accent:#5e6ad2;--accent-2:#7b83e8;--accent-soft:rgba(94,106,210,.14);--good:#4cc38a;--warn:#e8a23d;
+  --warn-bg:rgba(232,162,61,.12);--good-bg:rgba(76,195,138,.12);--closed-bg:rgba(255,255,255,.05);--radius:6px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--shadow:0 1px 2px rgba(0,0,0,0.3);
+}
+html[data-theme="notion"]{
+  --surface:#ffffff;--plane:#f7f6f3;--panel:#ffffff;--ink:#37352f;--ink-2:#6b6a67;--ink-muted:#9b9a97;
+  --grid:#eeeeec;--accent:#2383e2;--accent-2:#0b6fcc;--accent-soft:#e7f3fc;--good:#2f9e44;--warn:#d9730d;
+  --warn-bg:#faebdd;--good-bg:#ddedea;--closed-bg:#f1f1ef;--radius:9px;--font:ui-rounded,"SF Pro Rounded",system-ui,sans-serif;
+  --shadow:0 1px 3px rgba(15,15,15,.06);
+}
+html[data-theme="gold"]{
+  --surface:#1b1c1f;--plane:#101113;--panel:#232427;--ink:#f5f4f2;--ink-2:#c7c6c1;--ink-muted:#8b8a86;
+  --grid:#35363a;--accent:#d4a24e;--accent-2:#b8843a;--accent-soft:rgba(212,162,78,.16);--good:#2ecc55;--warn:#f2b84b;
+  --warn-bg:rgba(242,184,75,.14);--good-bg:rgba(46,204,85,.14);--closed-bg:rgba(139,138,134,.14);--radius:14px;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;--shadow:0 1px 2px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.35);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--plane);font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased;padding:18px;transition:background .2s;}
+
+.toggle-bar{max-width:1300px;margin:0 auto 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.toggle-bar span{font-size:12.5px;color:#666;margin-right:6px;font-family:system-ui,sans-serif;}
+.toggle-btn{font-family:system-ui,sans-serif;font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:20px;border:1.5px solid #d8d8d8;background:#fff;color:#333;cursor:pointer;}
+.toggle-btn.active{background:#111;border-color:#111;color:#fff;}
+
+.app-window{max-width:1300px;margin:0 auto;background:var(--surface);border-radius:var(--radius);overflow:hidden;box-shadow:0 24px 60px rgba(20,20,15,0.16), 0 2px 6px rgba(20,20,15,0.08);border:1px solid var(--grid);}
+.title-bar{height:44px;background:var(--panel);border-bottom:1px solid var(--grid);display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 16px;}
+.title-left{display:flex;align-items:center;gap:9px;}
+.app-title{font-size:13px;font-weight:700;color:var(--ink);}
+.app-sub{font-size:12px;color:var(--ink-muted);margin-left:4px;}
+.win-dots{display:flex;gap:7px;}
+.win-dots span{width:9px;height:9px;border-radius:50%;background:var(--grid);}
+
+.app-body{display:flex;min-height:520px;}
+.sidebar{width:212px;flex-shrink:0;background:var(--plane);border-right:1px solid var(--grid);padding:16px 10px;}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 8px 18px;}
+.brand-icon{width:26px;height:26px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;flex-shrink:0;}
+.brand-name{font-size:14px;font-weight:800;color:var(--ink);}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:calc(var(--radius) - 4px);font-size:13px;color:var(--ink-2);font-weight:600;margin-bottom:2px;}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+.sidebar-foot{margin-top:220px;padding:10px 11px;border-top:1px solid var(--grid);font-size:11.5px;color:var(--ink-muted);}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:6px;}
+
+.main{flex:1;padding:24px 26px;}
+.main h1{font-size:19px;font-weight:800;margin:0 0 4px;}
+.main p.sub{font-size:13px;color:var(--ink-2);margin:0 0 18px;}
+
+.kpi-strip{display:flex;align-items:stretch;background:var(--panel);border:1px solid var(--grid);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;}
+.kpi-hero{display:flex;align-items:center;gap:14px;padding:20px 24px;flex:1.3;border-right:1px solid var(--grid);}
+.kpi-hero-icon{width:46px;height:46px;border-radius:calc(var(--radius) - 2px);background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800;font-size:18px;flex-shrink:0;}
+.kpi-hero-value{font-size:32px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1;}
+.kpi-hero-label{font-size:12px;color:var(--ink-muted);font-weight:600;margin-top:5px;}
+.kpi-sub-list{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:16px 24px;}
+.kpi-sub{display:flex;align-items:center;gap:9px;font-size:13px;}
+.kpi-sub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.kpi-sub-label{color:var(--ink-2);font-weight:600;flex:1;}
+.kpi-sub-value{color:var(--ink);font-weight:800;font-size:14.5px;}
+
+.card{background:var(--panel);border:1px solid var(--grid);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px;}
+.filters-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.pill{font-size:12px;padding:7px 12px;border-radius:20px;border:1px solid var(--grid);background:var(--surface);color:var(--ink-2);font-weight:600;}
+.btn{font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:calc(var(--radius) - 3px);border:none;background:var(--accent);color:#fff;cursor:pointer;}
+.btn.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--grid);}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{text-align:left;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-muted);padding:9px 12px;border-bottom:1px solid var(--grid);font-weight:700;}
+tbody td{padding:11px 12px;border-bottom:1px solid var(--grid);color:var(--ink-2);}
+tbody tr:hover{background:var(--accent-soft);}
+.lot-desc{color:var(--ink);font-weight:600;}
+.type-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;}
+.badge.good{background:var(--good-bg);color:var(--good);}
+.badge.warn{background:var(--warn-bg);color:var(--warn);}
+</style>
+</head>
+<body>
+
+<div class="toggle-bar">
+  <span>Estilo:</span>
+  <button class="toggle-btn active" data-theme="stripe">Stripe</button>
+  <button class="toggle-btn" data-theme="linear">Linear</button>
+  <button class="toggle-btn" data-theme="notion">Notion</button>
+  <button class="toggle-btn" data-theme="gold">Gold (actual)</button>
+</div>
+
+<div class="app-window">
+  <div class="title-bar">
+    <div class="title-left">
+      <div class="brand-icon" style="width:20px;height:20px;font-size:11px;">A</div>
+      <span class="app-title">Auctions Broker</span>
+      <span class="app-sub">BOE Subastas</span>
+    </div>
+    <div class="win-dots"><span></span><span></span><span></span></div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">A</div>
+        <span class="brand-name">Auctions Broker</span>
+      </div>
+      <div class="nav-item active"><span class="nav-dot"></span>Buscador</div>
+      <div class="sidebar-foot">
+        <div><span class="status-dot"></span>BOE Subastas</div>
+      </div>
+    </div>
+    <div class="main">
+      <h1>Buscador de subastas</h1>
+      <p class="sub">Datos reales de BOE Subastas. Tocá "Actualizar" para traer lo último.</p>
+
+      <div class="kpi-strip">
+        <div class="kpi-hero">
+          <div class="kpi-hero-icon">6</div>
+          <div>
+            <div class="kpi-hero-value">6</div>
+            <div class="kpi-hero-label">Lotes totales rastreados</div>
+          </div>
+        </div>
+        <div class="kpi-sub-list">
+          <div class="kpi-sub"><span class="kpi-sub-dot" style="background:var(--warn)"></span><span class="kpi-sub-label">Próxima apertura</span><span class="kpi-sub-value">1</span></div>
+          <div class="kpi-sub"><span class="kpi-sub-dot" style="background:var(--good)"></span><span class="kpi-sub-label">Celebrándose</span><span class="kpi-sub-value">4</span></div>
+          <div class="kpi-sub"><span class="kpi-sub-dot" style="background:var(--accent)"></span><span class="kpi-sub-label">Tasación promedio</span><span class="kpi-sub-value">124.672,79 €</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Filtros</div>
+        <div class="filters-row">
+          <span class="pill">Todos los estados</span>
+          <span class="pill">Todos los tipos de subasta</span>
+          <span class="pill">Todos los tipos de bien</span>
+          <span class="pill">Todas las provincias</span>
+        </div>
+        <div class="filters-row" style="margin-bottom:0;">
+          <button class="btn">Actualizar</button>
+          <button class="btn ghost">Exportar a Excel</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:auto;">
+        <table>
+          <thead><tr><th>Id</th><th>Tipo</th><th>Bien</th><th>Provincia</th><th>Descripción</th><th>Tasación</th><th>Estado</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>SUB-JA-2025-254218</td><td>JUDICIAL EN VÍA</td>
+              <td><span class="type-dot" style="background:var(--accent)"></span>Inmueble</td>
+              <td>Madrid</td><td class="lot-desc">Vivienda 3 dorm, 90 m2</td><td>186.000,00 €</td>
+              <td><span class="badge good">Celebrándose</span></td>
+            </tr>
+            <tr>
+              <td>SUB-AT-2026-888888</td><td>AGENCIA TRIBUT.</td>
+              <td><span class="type-dot" style="background:#e08a4b"></span>Vehículo</td>
+              <td>Sevilla</td><td class="lot-desc">Furgón Renault Trafic</td><td>9.800,00 €</td>
+              <td><span class="badge warn">Próxima apertura</span></td>
+            </tr>
+            <tr>
+              <td>SUB-JC-2026-777777</td><td>JUDICIAL CONCURS.</td>
+              <td><span class="type-dot" style="background:#3fae6b"></span>Bien mueble</td>
+              <td>Valencia</td><td class="lot-desc">Maquinaria de taller</td><td>8.700,00 €</td>
+              <td><span class="badge good">Celebrándose</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll(".toggle-btn").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.documentElement.dataset.theme = btn.dataset.theme;
+    document.querySelectorAll(".toggle-btn").forEach(function(b){b.classList.remove("active");});
+    btn.classList.add("active");
+  });
+});
+</script>
+</body>
+</html>

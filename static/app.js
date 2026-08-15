@@ -1,4 +1,14 @@
 (function () {
+  document.documentElement.dataset.theme = "dark";
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var dark = document.documentElement.dataset.theme === "dark";
+    document.documentElement.dataset.theme = dark ? "light" : "dark";
+    document.getElementById("theme-icon-dark").style.display = dark ? "none" : "block";
+    document.getElementById("theme-icon-light").style.display = dark ? "block" : "none";
+  });
+})();
+
+(function () {
   var PROVINCIAS = [
     "Araba/Álava","Albacete","Alicante/Alacant","Almería","Ávila","Badajoz","Illes Balears",
     "Barcelona","Burgos","Cáceres","Cádiz","Castellón/Castelló","Ciudad Real","Córdoba",
@@ -26,16 +36,16 @@
     return n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
   }
 
-  var TIPO_BIEN_COLOR = { "Inmueble": "#2a78d6", "Vehículo": "#eb6834", "Bien mueble": "#1baf7a" };
+  var TIPO_BIEN_COLOR = { "Inmueble": "#5a9fd6", "Vehículo": "#f0794a", "Bien mueble": "#22c98c" };
 
   function statusBadge(estado) {
     if (estado === "Próxima apertura") {
-      return '<span class="badge pronto"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="#b8790f" stroke-width="1.3"/><line x1="5" y1="5" x2="5" y2="2.6" stroke="#b8790f" stroke-width="1.3"/><line x1="5" y1="5" x2="6.8" y2="6" stroke="#b8790f" stroke-width="1.3"/></svg>Próxima apertura</span>';
+      return '<span class="badge pronto"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="5" x2="5" y2="2.6" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="5" x2="6.8" y2="6" stroke="currentColor" stroke-width="1.3"/></svg>Próxima apertura</span>';
     }
     if (estado === "Celebrándose") {
-      return '<span class="badge abierta"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.4" fill="#0a7a0a"/></svg>Celebrándose</span>';
+      return '<span class="badge abierta"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.4" fill="currentColor"/></svg>Celebrándose</span>';
     }
-    return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="#898781" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
+    return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
   }
 
   function currentFilters() {
