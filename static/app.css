@@ -146,9 +146,9 @@ tbody tr:hover{background:var(--accent-soft);}
 @media (max-width:760px){
   .kpi-sub-label{display:none;}
   .sidebar{width:64px;}
-  .brand-name, .nav-text{display:none;}
+  .brand-name, .nav-text, .src-status{display:none;}
   .brand{justify-content:center;}
-  .theme-toggle{margin-left:0;}
+  .theme-toggle{display:none;}
 }
 @media (max-width:560px){
   .app-body{flex-direction:column;}
