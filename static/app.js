@@ -123,8 +123,9 @@
       .then(function (r) { return r.json(); })
       .then(function (e) {
         var nota = document.getElementById("ultima-sync");
-        nota.textContent = e.boe_ultima_sync
-          ? "Última sincronización: " + e.boe_ultima_sync.replace("T", " ")
+        var ultima = [e.boe_ultima_sync, e.seg_social_ultima_sync].filter(Boolean).sort().pop();
+        nota.textContent = ultima
+          ? "Última sincronización: " + ultima.replace("T", " ")
           : "Todavía no sincronizado";
         return e;
       });
@@ -172,7 +173,7 @@
     btn.disabled = true;
     label.textContent = "Actualizando... (2 a 5 minutos)";
     track.classList.add("active");
-    statusText.textContent = "Sincronizando con BOE Subastas...";
+    statusText.textContent = "Sincronizando con BOE Subastas y Seguridad Social...";
     fetch("/api/sync", { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function () { pollearSync(); })

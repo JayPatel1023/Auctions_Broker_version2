@@ -2,9 +2,9 @@
 Auctions Broker - servidor local (Flask).
 
 No es un sitio publico: corre en 127.0.0.1 y lo abre pywebview como
-ventana nativa (ver main.py). Fase 1: solo BOE Subastas, sincronizacion
+ventana nativa (ver main.py). BOE Subastas + Seguridad Social, sincronizacion
 manual con el boton "Actualizar" (la sincronizacion automatica diaria
-es Fase 2).
+es el siguiente paso).
 """
 
 import logging
@@ -16,7 +16,7 @@ from flask import Flask, jsonify, request, send_file, render_template
 
 import db
 import export
-from ingest import sync_boe, PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO
+from ingest import sync_boe, sync_seg_social, PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")
@@ -34,13 +34,20 @@ def _sync_en_segundo_plano():
         sync_status["mensaje"] = msg
 
     try:
-        total = sync_boe(
+        total_boe = sync_boe(
             provincias=PRINCIPALES_PROVINCIAS,
             estados=ESTADO_ACTIVOS_COD,
             con_detalle=True,
             limite_por_combo=LIMITE_POR_COMBO_DEFECTO,
             progreso=progreso,
         )
+        total_ss = sync_seg_social(
+            provincias=PRINCIPALES_PROVINCIAS,
+            con_detalle=True,
+            limite_por_combo=LIMITE_POR_COMBO_DEFECTO,
+            progreso=progreso,
+        )
+        total = total_boe + total_ss
         sync_status["lotes_procesados"] = total
         sync_status["mensaje"] = f"Listo - {total} lotes procesados"
     except Exception as e:
@@ -120,10 +127,12 @@ def api_sync():
 @app.route("/api/estado")
 def api_estado():
     boe = db.get_sync_state("BOE Subastas")
+    ss = db.get_sync_state("Seguridad Social")
     total = len(db.query_lotes())
     return jsonify({
         "total_lotes": total,
         "boe_ultima_sync": boe["last_full_sync"] if boe else None,
+        "seg_social_ultima_sync": ss["last_full_sync"] if ss else None,
         "sincronizando": sync_status["en_progreso"],
         "mensaje_sync": sync_status["mensaje"],
     })

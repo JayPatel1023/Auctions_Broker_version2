@@ -74,6 +74,12 @@ def _clean(txt):
     return re.sub(r"\s+", " ", txt or "").strip()
 
 
+def _quitar_iso(txt):
+    """BOE agrega '(ISO: 2026-08-17T18:00:00+02:00)' despues de la fecha
+    en texto plano, redundante para mostrar en la tabla."""
+    return re.sub(r"\s*\(ISO:[^)]*\)", "", txt or "").strip()
+
+
 def _money_to_float(txt):
     """'662.067,00 €' -> 662067.00 ; 'Sin puja mínima' -> None"""
     if not txt:
@@ -223,8 +229,8 @@ class BOEScraper:
 
         return {
             "tipo_subasta": campos.get("Tipo de subasta", ""),
-            "fecha_inicio": campos.get("Fecha de inicio", ""),
-            "fecha_conclusion": campos.get("Fecha de conclusión", ""),
+            "fecha_inicio": _quitar_iso(campos.get("Fecha de inicio", "")),
+            "fecha_conclusion": _quitar_iso(campos.get("Fecha de conclusión", "")),
             "cantidad_reclamada": _money_to_float(campos.get("Cantidad reclamada")),
             "valor_subasta": _money_to_float(campos.get("Valor subasta")),
             "valor_tasacion": _money_to_float(campos.get("Tasación")),
