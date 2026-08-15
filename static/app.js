@@ -75,14 +75,14 @@
       var color = TIPO_BIEN_COLOR[r.tipo_bien] || "#898781";
       return "<tr>" +
         '<td class="lot-id">' + r.id + "</td>" +
-        "<td>" + (r.tipo_subasta || "") + "</td>" +
+        '<td class="col-opt">' + (r.tipo_subasta || "") + "</td>" +
         '<td><span class="type-dot" style="background:' + color + '"></span>' + (r.tipo_bien || "") + "</td>" +
-        "<td>" + (r.provincia || "") + (r.localidad ? " / " + r.localidad : "") + "</td>" +
+        '<td class="col-opt">' + (r.provincia || "") + (r.localidad ? " / " + r.localidad : "") + "</td>" +
         '<td class="lot-desc wrap" title="' + (r.descripcion || "").replace(/"/g, "&quot;") + '">' + (r.descripcion || "").slice(0, 90) + "</td>" +
         '<td class="num-val">' + fmt(r.valor_tasacion) + "</td>" +
-        '<td class="num-val">' + fmt(r.valor_subasta) + "</td>" +
-        "<td>" + (r.puja_minima ? fmt(r.puja_minima) : "Sin puja mínima") + "</td>" +
-        "<td>" + (r.fecha_conclusion || "") + "</td>" +
+        '<td class="num-val col-opt2">' + fmt(r.valor_subasta) + "</td>" +
+        '<td class="col-opt2">' + (r.puja_minima ? fmt(r.puja_minima) : "Sin puja mínima") + "</td>" +
+        '<td class="col-opt">' + (r.fecha_conclusion || "") + "</td>" +
         "<td>" + statusBadge(r.estado) + "</td>" +
         "</tr>";
     }).join("");
