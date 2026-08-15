@@ -76,7 +76,7 @@
       return "<tr>" +
         '<td class="lot-id">' + r.id + "</td>" +
         '<td class="col-opt">' + (r.tipo_subasta || "") + "</td>" +
-        '<td><span class="type-dot" style="background:' + color + '"></span>' + (r.tipo_bien || "") + "</td>" +
+        '<td class="col-opt3"><span class="type-dot" style="background:' + color + '"></span>' + (r.tipo_bien || "") + "</td>" +
         '<td class="col-opt">' + (r.provincia || "") + (r.localidad ? " / " + r.localidad : "") + "</td>" +
         '<td class="lot-desc wrap" title="' + (r.descripcion || "").replace(/"/g, "&quot;") + '">' + (r.descripcion || "").slice(0, 90) + "</td>" +
         '<td class="num-val">' + fmt(r.valor_tasacion) + "</td>" +
