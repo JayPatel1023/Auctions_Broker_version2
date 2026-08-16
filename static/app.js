@@ -46,6 +46,9 @@
     if (estado === "Celebrándose") {
       return '<span class="badge abierta"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.4" fill="currentColor"/></svg>Celebrándose</span>';
     }
+    if (estado === "Suspendida" || estado === "Cancelada") {
+      return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>' + estado + '</span>';
+    }
     return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
   }
 
@@ -104,16 +107,20 @@
   }
 
   function cargarOpciones() {
+    // "Tipo de bien" ya viene fijo en el HTML (BOE solo tiene esas 3
+    // categorias reales). "Tipo de subasta" no tiene lista fija en el
+    // sitio de BOE, asi que se arma con lo que ya trajo la sincronizacion
+    // - evitando duplicados en cada poll, porque esto se llama cada
+    // pocos segundos mientras hay una sincronizacion en curso.
     fetch("/api/opciones")
       .then(function (r) { return r.json(); })
       .then(function (op) {
+        var existentes = Array.prototype.map.call(fTipoSub.options, function (o) { return o.value; });
         op.tipos_subasta.forEach(function (t) {
-          var o = document.createElement("option"); o.value = t; o.textContent = t;
-          fTipoSub.appendChild(o);
-        });
-        op.tipos_bien.forEach(function (t) {
-          var o = document.createElement("option"); o.value = t; o.textContent = t;
-          fTipoBien.appendChild(o);
+          if (existentes.indexOf(t) === -1) {
+            var o = document.createElement("option"); o.value = t; o.textContent = t;
+            fTipoSub.appendChild(o);
+          }
         });
       });
   }

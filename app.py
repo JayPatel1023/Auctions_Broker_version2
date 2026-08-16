@@ -9,9 +9,8 @@ Dos sincronizaciones separadas, cada una con su propio estado:
   segundo plano mientras la app este abierta)
 """
 
+import io
 import logging
-import os
-import tempfile
 import threading
 from datetime import datetime, timedelta
 
@@ -23,13 +22,12 @@ from ingest import (
     sync_boe, sync_seg_social, sync_boe_historico, sync_seg_social_historico,
     PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO,
 )
+from scraper.boe import ESTADOS_ACTIVOS as ESTADO_ACTIVOS_COD
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")
 
 app = Flask(__name__)
-
-ESTADO_ACTIVOS_COD = ["PU", "EJ"]
 
 sync_lock = threading.Lock()
 sync_status = {"en_progreso": False, "mensaje": "", "lotes_procesados": 0}
@@ -141,13 +139,16 @@ def api_export():
         provincia=request.args.get("provincia") or None,
         texto=request.args.get("texto") or None,
     )
-    # nombre unico por pedido: si se hacen varios exports seguidos (o en
-    # paralelo) un nombre fijo puede pisarse a si mismo a mitad de escritura
-    fd, tmp = tempfile.mkstemp(suffix=".xlsx", prefix="subastas-")
-    os.close(fd)
-    export.exportar(filas, tmp)
+    # Se arma en memoria (BytesIO) en vez de pasar por un archivo temporal
+    # en disco: en el .exe de Windows un antivirus o el propio SO puede
+    # tener el archivo brevemente bloqueado justo cuando send_file intenta
+    # leerlo de vuelta, y el navegador termina descargando algo vacio o
+    # incompleto con extension .xlsx pero que no es un Excel valido.
+    buffer = io.BytesIO()
+    export.exportar(filas, buffer)
+    buffer.seek(0)
     return send_file(
-        tmp,
+        buffer,
         as_attachment=True,
         download_name="subastas-filtradas.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

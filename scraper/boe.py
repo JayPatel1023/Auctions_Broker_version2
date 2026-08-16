@@ -39,7 +39,7 @@ ESTADOS = {
     "PC": "Concluida",
     "FS": "Concluida",
 }
-ESTADOS_ACTIVOS = ["PU", "EJ"]
+ESTADOS_ACTIVOS = ["PU", "EJ", "SU", "CA"]
 ESTADOS_HISTORICOS = ["PC", "FS"]
 
 PROVINCIAS = {

@@ -61,17 +61,28 @@ def _fila_a_excel_row(row: dict):
     ]
 
 
-def exportar(filas: list, path: str):
-    """filas: lista de dicts (mismo shape que db.query_lotes()). Escribe un .xlsx en path."""
+def exportar(filas: list, path):
+    """filas: lista de dicts (mismo shape que db.query_lotes()).
+    path puede ser una ruta de archivo o un objeto tipo archivo (BytesIO);
+    openpyxl acepta los dos en wb.save()."""
     wb = Workbook()
     wb.remove(wb.active)
 
+    # PROXIMA APERTURA y CELEBRANDOSE son exactas; CONCLUIDAS es el resto
+    # (Concluida, pero tambien Suspendida/Cancelada) para que ningun lote
+    # se pierda del export aunque tenga un estado que el formato viejo del
+    # cliente no distinguia como hoja aparte.
+    exactos = {"PROXIMA APERTURA": "Próxima apertura", "CELEBRANDOSE": "Celebrándose"}
     for nombre_hoja, estado in SHEETS.items():
         ws = wb.create_sheet(nombre_hoja)
         ws.append(["Index - Auctions Broker"])
         ws.append(HEADERS)
         for row in filas:
-            if row["estado"] == estado:
+            if nombre_hoja in exactos:
+                coincide = row["estado"] == exactos[nombre_hoja]
+            else:
+                coincide = row["estado"] not in exactos.values()
+            if coincide:
                 ws.append(_fila_a_excel_row(row))
 
     wb.save(path)
