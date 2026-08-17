@@ -439,7 +439,7 @@ tbody tr:hover{background:var(--accent-soft);}
   document.getElementById("btn-sync").addEventListener("click",function(){
     var btn=document.getElementById("btn-sync"), label=btn.querySelector(".btn-label"),
         statusText=document.getElementById("status-text"), track=document.getElementById("progress-track");
-    btn.disabled=true; label.textContent="Actualizando... (2 a 5 minutos)"; track.classList.add("active");
+    btn.disabled=true; label.textContent="Actualizando... (puede tardar varios minutos)"; track.classList.add("active");
     statusText.textContent="Sincronizando con BOE Subastas y Seguridad Social...";
     setTimeout(function(){
       synced=true; render();

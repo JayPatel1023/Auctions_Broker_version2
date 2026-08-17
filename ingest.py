@@ -40,7 +40,13 @@ PRINCIPALES_PROVINCIAS = [
     "15",  # A Coruña
     "48",  # Bizkaia
 ]
-LIMITE_POR_COMBO_DEFECTO = 12
+# Antes eran 12: con solo 2 estados activos (Proxima apertura/Celebrandose)
+# entraba en "2 a 5 minutos". Al sumar Suspendida y Cancelada para completar
+# el filtro de estados (pedido del cliente), el barrido paso a recorrer el
+# doble de combinaciones provincia x estado - medido en vivo, con 12 el
+# barrido completo de "Actualizar" pasaba los 10 minutos. Se baja a 6 para
+# que el tiempo total quede parecido al de antes.
+LIMITE_POR_COMBO_DEFECTO = 6
 
 
 def _lotes_a_entero(valor):
@@ -132,16 +138,16 @@ def sync_seg_social(provincias=None, con_detalle=True, limite_por_combo=None, pr
     provincias = provincias or PRINCIPALES_PROVINCIAS
 
     total = 0
-    for prov_cod in provincias:
+    for i, prov_cod in enumerate(provincias, start=1):
         lotes = scraper.buscar([prov_cod], tipos_bien=list(SS_TIPOS_BIEN.keys()))
         if limite_por_combo:
             lotes = lotes[:limite_por_combo]
-        if not lotes:
-            continue
-        msg = f"Seguridad Social - provincia {prov_cod}: {len(lotes)} lotes"
+        msg = f"Seguridad Social ({i}/{len(provincias)}) - {PROVINCIAS.get(prov_cod, prov_cod)}: {len(lotes)} lotes"
         log.info(msg)
         if progreso:
             progreso(msg)
+        if not lotes:
+            continue
         for lote in lotes:
             if con_detalle:
                 lote.update(scraper.detalle(lote["emb_id"]))
@@ -160,23 +166,23 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
     provincias = provincias or list(PROVINCIAS.keys())
     estados = estados or ESTADOS_ACTIVOS
 
+    combos = [(e, p) for e in estados for p in provincias]
     total = 0
-    for estado_cod in estados:
-        for prov_cod in provincias:
-            lotes, _, _ = scraper.buscar(prov_cod, estado_cod)
-            if limite_por_combo:
-                lotes = lotes[:limite_por_combo]
-            if not lotes:
-                continue
-            msg = f"{PROVINCIAS[prov_cod]}: {len(lotes)} lotes"
-            log.info(msg)
-            if progreso:
-                progreso(msg)
-            for lote in lotes:
-                if con_detalle:
-                    lote.update(scraper.detalle(lote["id"]))
-                db.upsert_lote(_lote_a_fila_db(lote))
-                total += 1
+    for i, (estado_cod, prov_cod) in enumerate(combos, start=1):
+        lotes, _, _ = scraper.buscar(prov_cod, estado_cod)
+        if limite_por_combo:
+            lotes = lotes[:limite_por_combo]
+        msg = f"({i}/{len(combos)}) {PROVINCIAS[prov_cod]} - {ESTADOS[estado_cod]}: {len(lotes)} lotes"
+        log.info(msg)
+        if progreso:
+            progreso(msg)
+        if not lotes:
+            continue
+        for lote in lotes:
+            if con_detalle:
+                lote.update(scraper.detalle(lote["id"]))
+            db.upsert_lote(_lote_a_fila_db(lote))
+            total += 1
 
     db.set_sync_state("BOE Subastas", last_full_sync=datetime.now().isoformat(timespec="seconds"))
     return total

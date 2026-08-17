@@ -168,6 +168,7 @@
     var statusText = document.getElementById("status-text");
     var track = document.getElementById("progress-track");
     btn.disabled = true;
+    label.textContent = "Actualizando... (puede tardar varios minutos)";
     track.classList.add("active");
     pollTimer = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
@@ -194,6 +195,7 @@
     var statusText = document.getElementById("historico-status");
     var track = document.getElementById("progress-track-historico");
     btn.disabled = true;
+    label.textContent = "Descargando histórico...";
     track.classList.add("active");
     pollTimerHistorico = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
@@ -228,7 +230,7 @@
     var statusText = document.getElementById("status-text");
     var track = document.getElementById("progress-track");
     btn.disabled = true;
-    label.textContent = "Actualizando... (2 a 5 minutos)";
+    label.textContent = "Actualizando... (puede tardar varios minutos)";
     track.classList.add("active");
     statusText.textContent = "Sincronizando con BOE Subastas y Seguridad Social...";
     fetch("/api/sync", { method: "POST" })
