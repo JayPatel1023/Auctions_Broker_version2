@@ -109,16 +109,21 @@ input[type=text]{cursor:text;min-width:170px;}
 @keyframes slide{0%{margin-left:-35%;}100%{margin-left:100%;}}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;}
-thead th:nth-child(1){width:9%;}
-thead th:nth-child(2){width:9%;}
-thead th:nth-child(3){width:9%;}
-thead th:nth-child(4){width:9%;}
-thead th:nth-child(5){width:15%;}
-thead th:nth-child(6){width:9%;}
-thead th:nth-child(7){width:9%;}
-thead th:nth-child(8){width:9%;}
-thead th:nth-child(9){width:8%;}
-thead th:nth-child(10){width:14%;}
+thead th:nth-child(1){width:6%;}
+thead th:nth-child(2){width:6%;}
+thead th:nth-child(3){width:6%;}
+thead th:nth-child(4){width:6%;}
+thead th:nth-child(5){width:10%;}
+thead th:nth-child(6){width:6%;}
+thead th:nth-child(7){width:6%;}
+thead th:nth-child(8){width:6%;}
+thead th:nth-child(9){width:6%;}
+thead th:nth-child(10){width:7%;}
+thead th:nth-child(11){width:6%;}
+thead th:nth-child(12){width:7%;}
+thead th:nth-child(13){width:7%;}
+thead th:nth-child(14){width:4%;}
+thead th:nth-child(15){width:11%;}
 thead th{text-align:left;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-muted);padding:10px 10px;border-bottom:2px solid var(--grid);font-weight:700;white-space:normal;line-height:1.35;word-break:normal;overflow-wrap:normal;}
 tbody td{padding:11px 12px;border-bottom:1px solid var(--grid);color:var(--ink-2);white-space:normal;word-break:break-word;overflow-wrap:break-word;}
 tbody td.num-val{white-space:nowrap;}
@@ -152,6 +157,8 @@ tbody tr:hover{background:var(--accent-soft);}
 
 @media (max-width:1300px){
   .col-opt2{display:none;}
+  .badge{font-size:9.5px;padding:3px 6px;gap:2px;}
+  .badge svg{width:7px;height:7px;}
 }
 @media (max-width:1080px){
   .col-opt{display:none;}
@@ -310,7 +317,7 @@ tbody tr:hover{background:var(--accent-soft);}
 
       <div class="card table-wrap" style="padding:0;">
         <table>
-          <thead><tr><th>Id</th><th class="col-opt">Tipo de subasta</th><th class="col-opt3">Tipo bien</th><th class="col-opt">Provincia / Localidad</th><th>Descripción</th><th>Tasación</th><th class="col-opt2">Valor subasta</th><th class="col-opt2">Puja mínima</th><th class="col-opt">Cierra</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Id</th><th class="col-opt">Tipo de subasta</th><th class="col-opt3">Tipo bien</th><th class="col-opt">Provincia / Localidad</th><th>Descripción</th><th>Tasación</th><th class="col-opt2">Valor subasta</th><th class="col-opt3">Ratio puja mín.</th><th class="col-opt3">Ratio reclamada</th><th class="col-opt2">Cantidad reclamada</th><th class="col-opt2">Puja mínima</th><th class="col-opt2">Importe depósito</th><th class="col-opt2">Tramos entre puja</th><th class="col-opt">Cierra</th><th>Estado</th></tr></thead>
           <tbody id="lots-tbody"></tbody>
         </table>
         <div class="empty-state" id="empty-state" style="display:none;">
@@ -342,8 +349,8 @@ tbody tr:hover{background:var(--accent-soft);}
   var HEADERS = ["Cantidad Reclamada / Valor Subasta","Puja Mínima / Valor Subasta","Estado","Tipo De Subasta","Tipo Bien","Id","Lotes","Provincia","Localidad","Dirección","Descripción","Referencia Catastral","Marca","Modelo","Matricula","Cantidad Reclamada","Valor De Tasacion","Valor Subasta","Tramos Entre Pujas","Puja Mínima","Importe Del Deposito","Nombre","Fecha De Inicio","Fecha De Conclusión"];
 
   var LOTS = [
-    {id:"SUB-JA-2026-264361",estado:"Celebrándose",tipo_subasta:"JUDICIAL EN VÍA DE APREMIO",tipo_bien:"Inmueble",lotes:1,provincia:"Sevilla",localidad:"Gelves",direccion:"",descripcion:"Urbana: número trece.- vivienda-piso bajo letra C en el municipio de Gelves, calle Antonio",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:71073.39,valor_subasta:71073.39,tramos_entre_pujas:1400,puja_minima:null,importe_deposito:3500,nombre:"Juzgado de Sevilla",fecha_inicio:"",fecha_conclusion:"01-09-2026 18:00:00"},
-    {id:"SUB-JA-2026-264426",estado:"Celebrándose",tipo_subasta:"JUDICIAL EN VÍA DE APREMIO",tipo_bien:"Inmueble",lotes:1,provincia:"Málaga",localidad:"Benalmádena",direccion:"",descripcion:"Local comercial J-Dos ubicado en el Bloque J de los que componen el conjunto urbanístico",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:0,valor_subasta:314548.16,tramos_entre_pujas:6000,puja_minima:null,importe_deposito:15700,nombre:"Juzgado de Málaga",fecha_inicio:"",fecha_conclusion:"01-09-2026 18:00:00"},
+    {id:"SUB-JA-2026-264361",estado:"Celebrándose",tipo_subasta:"JUDICIAL EN VÍA DE APREMIO",tipo_bien:"Inmueble",lotes:1,provincia:"Sevilla",localidad:"Gelves",direccion:"",descripcion:"Urbana: número trece.- vivienda-piso bajo letra C en el municipio de Gelves, calle Antonio",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:38900,valor_tasacion:71073.39,valor_subasta:71073.39,tramos_entre_pujas:1400,puja_minima:7100,importe_deposito:3500,nombre:"Juzgado de Sevilla",fecha_inicio:"",fecha_conclusion:"01-09-2026 18:00:00"},
+    {id:"SUB-JA-2026-264426",estado:"Celebrándose",tipo_subasta:"JUDICIAL EN VÍA DE APREMIO",tipo_bien:"Inmueble",lotes:1,provincia:"Málaga",localidad:"Benalmádena",direccion:"",descripcion:"Local comercial J-Dos ubicado en el Bloque J de los que componen el conjunto urbanístico",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:280400,valor_tasacion:0,valor_subasta:314548.16,tramos_entre_pujas:6000,puja_minima:null,importe_deposito:15700,nombre:"Juzgado de Málaga",fecha_inicio:"",fecha_conclusion:"01-09-2026 18:00:00"},
     {id:"SUB-AT-2026-888888",estado:"Próxima apertura",tipo_subasta:"AGENCIA TRIBUTARIA",tipo_bien:"Vehículo",lotes:1,provincia:"Sevilla",localidad:"Sevilla",direccion:"",descripcion:"Furgón Renault Trafic, matrícula 4021KWM",referencia_catastral:"",marca:"RENAULT",modelo:"TRAFIC",matricula:"4021KWM",cantidad_reclamada:null,valor_tasacion:9800,valor_subasta:9800,tramos_entre_pujas:200,puja_minima:null,importe_deposito:490,nombre:"Agencia Tributaria - Sevilla",fecha_inicio:"",fecha_conclusion:"30-08-2026 18:00:00"},
     {id:"SUB-JC-2026-777777",estado:"Concluida",tipo_subasta:"JUDICIAL CONCURSAL",tipo_bien:"Bien mueble",lotes:3,provincia:"Valencia/València",localidad:"",direccion:"",descripcion:"Lote de maquinaria de taller mecánico",referencia_catastral:"",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:8700,valor_subasta:8700,tramos_entre_pujas:170,puja_minima:null,importe_deposito:435,nombre:"Juzgado de lo Mercantil n. 2 de Valencia",fecha_inicio:"",fecha_conclusion:"21-06-2026 18:00:00"},
     {id:"SUB-JV-2026-261265",estado:"Celebrándose",tipo_subasta:"JUDICIAL VOLUNTARIA",tipo_bien:"Inmueble",lotes:1,provincia:"Madrid",localidad:"Madrid",direccion:"Calle Camarena 184",descripcion:"Piso planta 5a, 28047 Madrid, inscripción registro de la propiedad n. 9",referencia_catastral:"1765234TJ5116N0001SI",marca:"",modelo:"",matricula:"",cantidad_reclamada:null,valor_tasacion:213300,valor_subasta:213300,tramos_entre_pujas:4260,puja_minima:null,importe_deposito:10665,nombre:"Sección Civil TI Madrid",fecha_inicio:"",fecha_conclusion:"17-08-2026 18:00:00"},
@@ -361,6 +368,7 @@ tbody tr:hover{background:var(--accent-soft);}
   uniq(LOTS.map(function(l){return l.provincia;})).forEach(function(t){var o=document.createElement("option");o.value=t;o.textContent=t;fProv.appendChild(o);});
 
   function fmt(n){ if(n===null||n===undefined) return ""; return n.toLocaleString("es-ES",{style:"currency",currency:"EUR"}); }
+  function pct(parte,total){ if(!parte||!total) return ""; return (parte/total*100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" %"; }
 
   function statusBadge(estado){
     if(estado==="Próxima apertura") return '<span class="badge pronto"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="5" x2="5" y2="2.6" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="5" x2="6.8" y2="6" stroke="currentColor" stroke-width="1.3"/></svg>Próxima apertura</span>';
@@ -401,15 +409,21 @@ tbody tr:hover{background:var(--accent-soft);}
     document.getElementById("empty-state").style.display = (synced && !rows.length) ? "flex" : "none";
     tbody.innerHTML = rows.map(function(r){
       var color = TIPO_BIEN_COLOR[r.tipo_bien] || "#898781";
+      var idCell = fuenteDe(r) === "Seguridad Social" ? r.id : '<a href="https://subastas.boe.es/detalleSubasta.php?idSub='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">'+r.id+"</a>";
       return "<tr>"+
-        '<td class="lot-id">'+r.id+"</td>"+
+        '<td class="lot-id">'+idCell+"</td>"+
         '<td class="col-opt">'+r.tipo_subasta+"</td>"+
         '<td class="col-opt3"><span class="type-dot" style="background:'+color+'"></span>'+r.tipo_bien+"</td>"+
         '<td class="col-opt">'+r.provincia+(r.localidad?" / "+r.localidad:"")+"</td>"+
         '<td class="lot-desc wrap">'+r.descripcion+"</td>"+
         '<td class="num-val">'+fmt(r.valor_tasacion)+"</td>"+
         '<td class="num-val col-opt2">'+fmt(r.valor_subasta)+"</td>"+
+        '<td class="num-val col-opt3">'+pct(r.puja_minima, r.valor_subasta)+"</td>"+
+        '<td class="num-val col-opt3">'+pct(r.cantidad_reclamada, r.valor_subasta)+"</td>"+
+        '<td class="num-val col-opt2">'+fmt(r.cantidad_reclamada)+"</td>"+
         '<td class="col-opt2">'+(r.puja_minima?fmt(r.puja_minima):"Sin puja mínima")+"</td>"+
+        '<td class="num-val col-opt2">'+fmt(r.importe_deposito)+"</td>"+
+        '<td class="num-val col-opt2">'+fmt(r.tramos_entre_pujas)+"</td>"+
         '<td class="col-opt">'+r.fecha_conclusion+"</td>"+
         "<td>"+statusBadge(r.estado)+"</td>"+
       "</tr>";

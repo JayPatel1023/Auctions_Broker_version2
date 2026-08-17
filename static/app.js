@@ -72,21 +72,43 @@
     document.getElementById("kpi-avg").textContent = avg ? fmt(avg) : "-";
   }
 
+  function pct(parte, total) {
+    if (!parte || !total) return "";
+    return (parte / total * 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " %";
+  }
+
+  function detalleUrl(r) {
+    // Seguridad Social exige haber pasado por una busqueda en esa misma
+    // sesion del navegador antes de poder ver el detalle de un lote -
+    // entrando directo desde aca (una sesion nueva) el sitio devuelve su
+    // propia pagina de error, asi que solo enlazamos BOE, que si permite
+    // entrar directo al detalle sin sesion previa.
+    if (r.id.indexOf("SS-") === 0) return null;
+    return "https://subastas.boe.es/detalleSubasta.php?idSub=" + encodeURIComponent(r.id);
+  }
+
   function renderTable(rows) {
     var tbody = document.getElementById("lots-tbody");
     var empty = document.getElementById("empty-state");
     empty.style.display = rows.length ? "none" : "flex";
     tbody.innerHTML = rows.map(function (r) {
       var color = TIPO_BIEN_COLOR[r.tipo_bien] || "#898781";
+      var url = detalleUrl(r);
+      var idCell = url ? '<a href="' + url + '" target="_blank" rel="noopener">' + r.id + "</a>" : r.id;
       return "<tr>" +
-        '<td class="lot-id">' + r.id + "</td>" +
+        '<td class="lot-id">' + idCell + "</td>" +
         '<td class="col-opt">' + (r.tipo_subasta || "") + "</td>" +
         '<td class="col-opt3"><span class="type-dot" style="background:' + color + '"></span>' + (r.tipo_bien || "") + "</td>" +
         '<td class="col-opt">' + (r.provincia || "") + (r.localidad ? " / " + r.localidad : "") + "</td>" +
         '<td class="lot-desc wrap" title="' + (r.descripcion || "").replace(/"/g, "&quot;") + '">' + (r.descripcion || "").slice(0, 90) + "</td>" +
         '<td class="num-val">' + fmt(r.valor_tasacion) + "</td>" +
         '<td class="num-val col-opt2">' + fmt(r.valor_subasta) + "</td>" +
+        '<td class="num-val col-opt3">' + pct(r.puja_minima, r.valor_subasta) + "</td>" +
+        '<td class="num-val col-opt3">' + pct(r.cantidad_reclamada, r.valor_subasta) + "</td>" +
+        '<td class="num-val col-opt2">' + fmt(r.cantidad_reclamada) + "</td>" +
         '<td class="col-opt2">' + (r.puja_minima ? fmt(r.puja_minima) : "Sin puja mínima") + "</td>" +
+        '<td class="num-val col-opt2">' + fmt(r.importe_deposito) + "</td>" +
+        '<td class="num-val col-opt2">' + fmt(r.tramos_entre_pujas) + "</td>" +
         '<td class="col-opt">' + (r.fecha_conclusion || "") + "</td>" +
         "<td>" + statusBadge(r.estado) + "</td>" +
         "</tr>";

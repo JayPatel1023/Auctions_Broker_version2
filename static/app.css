@@ -94,16 +94,21 @@ input[type=text]{cursor:text;min-width:170px;}
 @keyframes slide{0%{margin-left:-35%;}100%{margin-left:100%;}}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed;}
-thead th:nth-child(1){width:9%;}
-thead th:nth-child(2){width:9%;}
-thead th:nth-child(3){width:9%;}
-thead th:nth-child(4){width:9%;}
-thead th:nth-child(5){width:15%;}
-thead th:nth-child(6){width:9%;}
-thead th:nth-child(7){width:9%;}
-thead th:nth-child(8){width:9%;}
-thead th:nth-child(9){width:8%;}
-thead th:nth-child(10){width:14%;}
+thead th:nth-child(1){width:6%;}
+thead th:nth-child(2){width:6%;}
+thead th:nth-child(3){width:6%;}
+thead th:nth-child(4){width:6%;}
+thead th:nth-child(5){width:10%;}
+thead th:nth-child(6){width:6%;}
+thead th:nth-child(7){width:6%;}
+thead th:nth-child(8){width:6%;}
+thead th:nth-child(9){width:6%;}
+thead th:nth-child(10){width:7%;}
+thead th:nth-child(11){width:6%;}
+thead th:nth-child(12){width:7%;}
+thead th:nth-child(13){width:7%;}
+thead th:nth-child(14){width:4%;}
+thead th:nth-child(15){width:11%;}
 thead th{text-align:left;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-muted);padding:10px 10px;border-bottom:2px solid var(--grid);font-weight:700;white-space:normal;line-height:1.35;word-break:normal;overflow-wrap:normal;}
 tbody td{padding:11px 12px;border-bottom:1px solid var(--grid);color:var(--ink-2);white-space:normal;word-break:break-word;overflow-wrap:break-word;}
 tbody td.num-val{white-space:nowrap;}
@@ -112,6 +117,8 @@ tbody tr:nth-child(even){background:var(--row-alt);}
 tbody tr:hover{background:var(--accent-soft);}
 .lot-desc{color:var(--ink);font-weight:600;}
 .lot-id{color:var(--ink-muted);font-size:11px;font-variant-numeric:tabular-nums;}
+.lot-id a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--ink-muted);}
+.lot-id a:hover{color:var(--accent);border-bottom-color:var(--accent);}
 .num-val{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:700;}
 .type-dot{display:inline-block;width:8px;height:8px;border-radius:2.5px;margin-right:7px;flex-shrink:0;}
 
@@ -139,6 +146,13 @@ tbody tr:hover{background:var(--accent-soft);}
    antes de forzar scroll horizontal en la tabla */
 @media (max-width:1300px){
   .col-opt2{display:none;}
+  /* con menos columnas visibles, table-layout:fixed reparte el % de
+     cada columna sobre un total mas chico (solo las columnas visibles) -
+     el ancho en pixeles real de una columna angosta como Estado puede
+     terminar mas chico que a pantalla completa, no mas grande. El badge
+     mas largo (Proxima apertura) necesita achicarse para no desbordar. */
+  .badge{font-size:9.5px;padding:3px 6px;gap:2px;}
+  .badge svg{width:7px;height:7px;}
 }
 @media (max-width:1080px){
   .col-opt{display:none;}
