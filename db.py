@@ -140,25 +140,26 @@ def upsert_lote(row: dict):
 
 
 def query_lotes(fuente=None, estado=None, tipo_subasta=None, tipo_bien=None, provincia=None, texto=None):
+    """fuente/estado/tipo_subasta/tipo_bien/provincia: None o una lista de
+    valores a combinar con OR (IN), para poder tildar varias opciones a la
+    vez por filtro -como en el buscador real de BOE Subastas- en vez de
+    forzar una sola opcion por categoria."""
     conn = get_conn()
     c = conn.cursor()
     sql = "SELECT * FROM lotes WHERE 1=1"
     params = []
-    if fuente:
-        sql += " AND fuente = ?"
-        params.append(fuente)
-    if estado:
-        sql += " AND estado = ?"
-        params.append(estado)
-    if tipo_subasta:
-        sql += " AND tipo_subasta = ?"
-        params.append(tipo_subasta)
-    if tipo_bien:
-        sql += " AND tipo_bien = ?"
-        params.append(tipo_bien)
-    if provincia:
-        sql += " AND provincia = ?"
-        params.append(provincia)
+
+    def in_clause(columna, valores):
+        nonlocal sql
+        if valores:
+            sql += f" AND {columna} IN ({','.join('?' for _ in valores)})"
+            params.extend(valores)
+
+    in_clause("fuente", fuente)
+    in_clause("estado", estado)
+    in_clause("tipo_subasta", tipo_subasta)
+    in_clause("tipo_bien", tipo_bien)
+    in_clause("provincia", provincia)
     if texto:
         sql += " AND (descripcion LIKE ? OR id LIKE ?)"
         like = f"%{texto}%"

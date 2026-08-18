@@ -19,25 +19,131 @@
     "Bizkaia","Zamora","Zaragoza","Ceuta","Melilla"
   ];
 
-  var fFuente = document.getElementById("f-fuente");
-  var fEstado = document.getElementById("f-estado");
-  var fTipoSub = document.getElementById("f-tiposub");
-  var fTipoBien = document.getElementById("f-tipobien");
-  var fProv = document.getElementById("f-prov");
-  var fText = document.getElementById("f-text");
+  // Multi-select tipo checkboxes: cada filtro deja tildar varias opciones a
+  // la vez y combinarlas (pedido explicito del cliente: "en subastaboe...
+  // se hace por click en los filtros que necesitas", cosa que un <select>
+  // de una sola opcion no permite).
+  function crearMultiSelect(container, etiqueta) {
+    var seleccion = [];
+    var opciones = [];
+    var onChange = function () {};
 
-  PROVINCIAS.forEach(function (p) {
-    var o = document.createElement("option");
-    o.value = p; o.textContent = p;
-    fProv.appendChild(o);
-  });
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "msel-btn";
+    var panel = document.createElement("div");
+    panel.className = "msel-panel";
+    container.appendChild(btn);
+    container.appendChild(panel);
+
+    function renderBtn() {
+      btn.textContent = etiqueta + (seleccion.length ? " (" + seleccion.length + ")" : "");
+      btn.classList.toggle("active", seleccion.length > 0);
+    }
+
+    function renderPanel() {
+      panel.innerHTML = "";
+      if (!opciones.length) {
+        var vacio = document.createElement("div");
+        vacio.className = "msel-empty";
+        vacio.textContent = "Sin opciones todavía";
+        panel.appendChild(vacio);
+        return;
+      }
+      opciones.forEach(function (v) {
+        var row = document.createElement("label");
+        row.className = "msel-row";
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = seleccion.indexOf(v) !== -1;
+        cb.addEventListener("change", function () {
+          if (cb.checked) {
+            if (seleccion.indexOf(v) === -1) seleccion.push(v);
+          } else {
+            seleccion = seleccion.filter(function (x) { return x !== v; });
+          }
+          renderBtn();
+          onChange();
+        });
+        var span = document.createElement("span");
+        span.textContent = v;
+        row.appendChild(cb);
+        row.appendChild(span);
+        panel.appendChild(row);
+      });
+    }
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var abierto = panel.classList.contains("open");
+      document.querySelectorAll(".msel-panel.open").forEach(function (p) { p.classList.remove("open"); });
+      if (!abierto) panel.classList.add("open");
+    });
+    panel.addEventListener("click", function (e) { e.stopPropagation(); });
+    document.addEventListener("click", function () { panel.classList.remove("open"); });
+
+    renderBtn();
+    renderPanel();
+
+    return {
+      setOptions: function (nuevas) {
+        opciones = nuevas;
+        seleccion = seleccion.filter(function (v) { return opciones.indexOf(v) !== -1; });
+        renderBtn();
+        renderPanel();
+      },
+      getValues: function () { return seleccion.slice(); },
+      clear: function () { seleccion = []; renderBtn(); renderPanel(); },
+      onChange: function (fn) { onChange = fn; },
+    };
+  }
+
+  var fText = document.getElementById("f-text");
+  var mFuente = crearMultiSelect(document.getElementById("msel-fuente"), "Fuente");
+  var mEstado = crearMultiSelect(document.getElementById("msel-estado"), "Estado");
+  var mTipoSub = crearMultiSelect(document.getElementById("msel-tiposub"), "Tipo de subasta");
+  var mTipoBien = crearMultiSelect(document.getElementById("msel-tipobien"), "Tipo de bien");
+  var mProv = crearMultiSelect(document.getElementById("msel-prov"), "Provincia");
+
+  mFuente.setOptions(["BOE Subastas", "Seguridad Social"]);
+  mProv.setOptions(PROVINCIAS);
+
+  // BOE Subastas y Seguridad Social usan categorias distintas (pedido del
+  // cliente: "si te fijas en la web de seguridad social los filtros son
+  // distintos"). Sin ninguna fuente tildada (o con las dos) se muestra la
+  // union; tildando solo una se acota a sus categorias reales.
+  var TIPO_BIEN_BOE = ["Inmueble", "Vehículo", "Bien mueble"];
+  var TIPO_BIEN_SS = ["Finca Rústica", "Finca Urbana", "Vehículo", "Embarcación", "Resto de Bienes Muebles"];
+  var ESTADOS_BOE = ["Próxima apertura", "Celebrándose", "Suspendida", "Cancelada", "Concluida"];
+  var ESTADOS_SS = ["Próxima apertura", "Celebrándose", "Concluida"];
+
+  function union(a, b) {
+    return a.concat(b.filter(function (v) { return a.indexOf(v) === -1; }));
+  }
+
+  function actualizarFiltrosSegunFuente() {
+    var fuentes = mFuente.getValues();
+    var conBOE = !fuentes.length || fuentes.indexOf("BOE Subastas") !== -1;
+    var conSS = !fuentes.length || fuentes.indexOf("Seguridad Social") !== -1;
+    var tipoBien = [], estados = [];
+    if (conBOE) { tipoBien = union(tipoBien, TIPO_BIEN_BOE); estados = union(estados, ESTADOS_BOE); }
+    if (conSS) { tipoBien = union(tipoBien, TIPO_BIEN_SS); estados = union(estados, ESTADOS_SS); }
+    mTipoBien.setOptions(tipoBien);
+    mEstado.setOptions(estados);
+  }
+
+  actualizarFiltrosSegunFuente();
 
   function fmt(n) {
     if (n === null || n === undefined) return "";
     return n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
   }
 
-  var TIPO_BIEN_COLOR = { "Inmueble": "#5a9fd6", "Vehículo": "#f0794a", "Bien mueble": "#22c98c" };
+  var TIPO_BIEN_COLOR = {
+    "Inmueble": "#5a9fd6", "Finca Rústica": "#5a9fd6", "Finca Urbana": "#5a9fd6",
+    "Vehículo": "#f0794a",
+    "Bien mueble": "#22c98c", "Embarcación": "#22c98c", "Resto de Bienes Muebles": "#22c98c",
+  };
 
   function statusBadge(estado) {
     if (estado === "Próxima apertura") {
@@ -52,14 +158,23 @@
     return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
   }
 
-  function currentFilters() {
+  function filtrosActuales() {
+    return {
+      fuente: mFuente.getValues(),
+      estado: mEstado.getValues(),
+      tipo_subasta: mTipoSub.getValues(),
+      tipo_bien: mTipoBien.getValues(),
+      provincia: mProv.getValues(),
+      texto: fText.value.trim(),
+    };
+  }
+
+  function paramsDeFiltros(f) {
     var p = new URLSearchParams();
-    if (fFuente.value) p.set("fuente", fFuente.value);
-    if (fEstado.value) p.set("estado", fEstado.value);
-    if (fTipoSub.value) p.set("tipo_subasta", fTipoSub.value);
-    if (fTipoBien.value) p.set("tipo_bien", fTipoBien.value);
-    if (fProv.value) p.set("provincia", fProv.value);
-    if (fText.value.trim()) p.set("texto", fText.value.trim());
+    ["fuente", "estado", "tipo_subasta", "tipo_bien", "provincia"].forEach(function (k) {
+      (f[k] || []).forEach(function (v) { p.append(k, v); });
+    });
+    if (f.texto) p.set("texto", f.texto);
     return p;
   }
 
@@ -116,7 +231,7 @@
   }
 
   function cargar() {
-    var params = currentFilters();
+    var params = paramsDeFiltros(filtrosActuales());
     fetch("/api/lotes?" + params.toString())
       .then(function (r) { return r.json(); })
       .then(function (rows) {
@@ -129,22 +244,15 @@
   }
 
   function cargarOpciones() {
-    // "Tipo de bien" ya viene fijo en el HTML (BOE solo tiene esas 3
-    // categorias reales). "Tipo de subasta" no tiene lista fija en el
-    // sitio de BOE, asi que se arma con lo que ya trajo la sincronizacion
-    // - evitando duplicados en cada poll, porque esto se llama cada
-    // pocos segundos mientras hay una sincronizacion en curso.
+    // "Tipo de bien" y "Estado" salen de listas fijas segun fuente (ver
+    // actualizarFiltrosSegunFuente). "Tipo de subasta" no tiene lista fija
+    // en el sitio de BOE, asi que se arma con lo que ya trajo la
+    // sincronizacion - setOptions conserva la seleccion tildada si sigue
+    // siendo valida, aunque esto se llame cada pocos segundos durante una
+    // sincronizacion en curso.
     fetch("/api/opciones")
       .then(function (r) { return r.json(); })
-      .then(function (op) {
-        var existentes = Array.prototype.map.call(fTipoSub.options, function (o) { return o.value; });
-        op.tipos_subasta.forEach(function (t) {
-          if (existentes.indexOf(t) === -1) {
-            var o = document.createElement("option"); o.value = t; o.textContent = t;
-            fTipoSub.appendChild(o);
-          }
-        });
-      });
+      .then(function (op) { mTipoSub.setOptions(op.tipos_subasta); });
   }
 
   var pollTimer = null;
@@ -212,16 +320,25 @@
     }, 3000);
   }
 
-  [fFuente, fEstado, fTipoSub, fTipoBien, fProv].forEach(function (el) { el.addEventListener("change", cargar); });
+  mFuente.onChange(function () { actualizarFiltrosSegunFuente(); cargar(); });
+  [mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.onChange(cargar); });
   fText.addEventListener("input", cargar);
   document.getElementById("f-clear").addEventListener("click", function () {
-    fFuente.value = ""; fEstado.value = ""; fTipoSub.value = ""; fTipoBien.value = ""; fProv.value = ""; fText.value = "";
+    [mFuente, mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.clear(); });
+    fText.value = "";
+    actualizarFiltrosSegunFuente();
     cargar();
   });
 
   document.getElementById("export-xls").addEventListener("click", function () {
-    var params = currentFilters();
-    window.location.href = "/api/export?" + params.toString();
+    var statusText = document.getElementById("status-text");
+    var filtros = filtrosActuales();
+    statusText.textContent = "Elegí dónde guardar el archivo...";
+    window.pywebview.api.export_excel(filtros).then(function (res) {
+      statusText.textContent = res.ok
+        ? "Exportado: " + res.lotes + " lotes en " + res.ruta
+        : "Listo";
+    });
   });
 
   document.getElementById("btn-sync").addEventListener("click", function () {

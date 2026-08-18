@@ -30,10 +30,14 @@ if getattr(sys, "frozen", False):
 else:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+import io
+
 import webview
+from webview import FileDialog
 
 import db
-from app import app, iniciar_sync_si_hace_falta
+import export
+from app import app
 
 log = logging.getLogger("main")
 
@@ -45,28 +49,65 @@ def _run_flask():
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
 
 
+class Api:
+    """Expuesta al frontend como window.pywebview.api (ver static/app.js).
+
+    El export a Excel no se resuelve como una descarga HTTP (window.location.href
+    a /api/export): un .xlsx es en realidad un .zip con XML adentro, y el
+    manejo de descargas de WebView2 en Windows lo guardaba con extension .zip
+    en vez de .xlsx (confirmado con el archivo real que mando el cliente: el
+    contenido era un Excel perfectamente valido, el unico problema era la
+    extension con la que quedaba guardado). Pidiendo la ruta con el dialogo
+    nativo "Guardar como" y escribiendo el archivo nosotros mismos, la
+    extension queda siempre bajo nuestro control, sin pasar por esa
+    conversion de WebView2.
+    """
+
+    def export_excel(self, filtros):
+        filas = db.query_lotes(
+            fuente=filtros.get("fuente") or None,
+            estado=filtros.get("estado") or None,
+            tipo_subasta=filtros.get("tipo_subasta") or None,
+            tipo_bien=filtros.get("tipo_bien") or None,
+            provincia=filtros.get("provincia") or None,
+            texto=filtros.get("texto") or None,
+        )
+        buffer = io.BytesIO()
+        export.exportar(filas, buffer)
+
+        ruta = self.window.create_file_dialog(
+            FileDialog.SAVE,
+            save_filename="subastas-filtradas.xlsx",
+            file_types=("Archivos Excel (*.xlsx)",),
+        )
+        if not ruta:
+            return {"ok": False}
+        destino = ruta[0] if isinstance(ruta, (list, tuple)) else ruta
+        with open(destino, "wb") as f:
+            f.write(buffer.getvalue())
+        return {"ok": True, "ruta": destino, "lotes": len(filas)}
+
+
 def main():
     db.init_db()
     threading.Thread(target=_run_flask, daemon=True).start()
 
-    # Descarga automatica diaria: si la ultima sincronizacion tiene mas de
-    # un dia (o nunca se hizo), arranca sola en segundo plano al abrir la
-    # app, sin que el usuario tenga que tocar "Actualizar". Solo corre
-    # mientras la app este abierta, como quedo hablado con el cliente.
-    iniciar_sync_si_hace_falta()
-
-    # pywebview bloquea descargas por defecto (ALLOW_DOWNLOADS=False). Sin esto,
-    # el boton "Exportar a Excel" no hace nada visible: pywebview cancela la
-    # descarga en silencio.
+    # pywebview bloquea descargas por defecto (ALLOW_DOWNLOADS=False). Ya no
+    # dependemos de esto para el export a Excel (ver Api.export_excel), pero
+    # se deja habilitado por si a futuro hace falta bajar algo mas.
     webview.settings['ALLOW_DOWNLOADS'] = True
 
-    webview.create_window(
+    api = Api()
+    window = webview.create_window(
         "Auctions Broker",
         f"http://{HOST}:{PORT}/",
         width=1150,
         height=760,
         min_size=(900, 600),
+        maximized=True,
+        js_api=api,
     )
+    api.window = window
     webview.start()
 
 

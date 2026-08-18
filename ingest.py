@@ -88,18 +88,11 @@ def _lote_a_fila_db(lote: dict) -> dict:
 
 
 # Seguridad Social usa su propia taxonomia de tipo de bien (Finca Rustica,
-# Finca Urbana, Vehiculo, Embarcacion, Resto de Bienes Muebles). La
-# normalizamos a las 3 categorias que ya usa BOE para que el filtro
-# "Tipo de bien" del buscador no duplique conceptos entre las 2 fuentes.
-SS_TIPO_BIEN_A_BOE = {
-    "Finca Rústica": "Inmueble",
-    "Finca Urbana": "Inmueble",
-    "Vehículo": "Vehículo",
-    "Embarcación": "Bien mueble",
-    "Resto de Bienes Muebles": "Bien mueble",
-}
-
-
+# Finca Urbana, Vehiculo, Embarcacion, Resto de Bienes Muebles), distinta de
+# la de BOE (Inmueble/Vehiculo/Bien mueble). Se guarda tal cual viene del
+# sitio -sin normalizar a las categorias de BOE- porque el cliente quiere
+# poder filtrar por la categoria real de cada fuente (pedido explicito:
+# "si te fijas en la web de seguridad social los filtros son distintos").
 def _lote_seg_social_a_fila_db(lote: dict) -> dict:
     fecha = lote.get("fecha_subasta", "")
     return {
@@ -107,7 +100,7 @@ def _lote_seg_social_a_fila_db(lote: dict) -> dict:
         "fuente": "Seguridad Social",
         "estado": _inferir_estado(fecha),
         "tipo_subasta": "RECAUDACIÓN SEGURIDAD SOCIAL",
-        "tipo_bien": SS_TIPO_BIEN_A_BOE.get(lote.get("tipo_bien", ""), lote.get("tipo_bien", "")),
+        "tipo_bien": lote.get("tipo_bien", ""),
         "lotes": _lotes_a_entero(lote.get("lotes")),
         "provincia": lote.get("provincia") or lote.get("provincia_busqueda", ""),
         "localidad": lote.get("localidad", ""),

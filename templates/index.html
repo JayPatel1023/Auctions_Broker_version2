@@ -72,30 +72,15 @@
           Filtros
         </div>
         <div class="filters-row">
-          <select id="f-fuente">
-            <option value="">Todas las fuentes</option>
-            <option value="BOE Subastas">BOE Subastas</option>
-            <option value="Seguridad Social">Seguridad Social</option>
-          </select>
-          <select id="f-estado">
-            <option value="">Todos los estados</option>
-            <option value="Próxima apertura">Próxima apertura</option>
-            <option value="Celebrándose">Celebrándose</option>
-            <option value="Suspendida">Suspendida</option>
-            <option value="Cancelada">Cancelada</option>
-            <option value="Concluida">Concluida</option>
-          </select>
-          <select id="f-tiposub"><option value="">Todos los tipos de subasta</option></select>
-          <select id="f-tipobien">
-            <option value="">Todos los tipos de bien</option>
-            <option value="Inmueble">Inmueble</option>
-            <option value="Vehículo">Vehículo</option>
-            <option value="Bien mueble">Bien mueble</option>
-          </select>
-          <select id="f-prov"><option value="">Todas las provincias</option></select>
+          <div class="msel" id="msel-fuente"></div>
+          <div class="msel" id="msel-estado"></div>
+          <div class="msel" id="msel-tiposub"></div>
+          <div class="msel" id="msel-tipobien"></div>
+          <div class="msel" id="msel-prov"></div>
           <input type="text" id="f-text" placeholder="Buscar por id o descripción">
           <button class="btn ghost" id="f-clear">Limpiar</button>
         </div>
+        <div class="sheet-note" style="margin-top:0;padding-top:0;border-top:none;">Tildá varias opciones dentro de un mismo filtro para combinarlas, igual que en subastas.boe.es.</div>
         <div class="count-note" id="table-count">Sin datos todavía. Tocá "Actualizar" para traer subastas reales.</div>
         <div class="filters-row" style="margin-bottom:0;">
           <button class="btn primary" id="btn-sync">

@@ -9,15 +9,12 @@ Dos sincronizaciones separadas, cada una con su propio estado:
   segundo plano mientras la app este abierta)
 """
 
-import io
 import logging
 import threading
-from datetime import datetime, timedelta
 
-from flask import Flask, jsonify, request, send_file, render_template
+from flask import Flask, jsonify, request, render_template
 
 import db
-import export
 from ingest import (
     sync_boe, sync_seg_social, sync_boe_historico, sync_seg_social_historico,
     PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO,
@@ -64,24 +61,6 @@ def _sync_en_segundo_plano():
         sync_status["en_progreso"] = False
 
 
-def iniciar_sync_si_hace_falta():
-    """Se llama al abrir la app (ver main.py). Si la ultima sincronizacion
-    rapida tiene mas de un dia (o nunca se hizo), la arranca sola en
-    segundo plano, sin que el usuario tenga que tocar "Actualizar"."""
-    boe = db.get_sync_state("BOE Subastas")
-    if boe and boe["last_full_sync"]:
-        ultima = datetime.fromisoformat(boe["last_full_sync"])
-        if datetime.now() - ultima < timedelta(days=1):
-            return
-    with sync_lock:
-        if sync_status["en_progreso"]:
-            return
-        sync_status["en_progreso"] = True
-        sync_status["mensaje"] = "Arrancando sincronización automática del día..."
-        sync_status["lotes_procesados"] = 0
-        threading.Thread(target=_sync_en_segundo_plano, daemon=True).start()
-
-
 def _historico_en_segundo_plano():
     def progreso(msg):
         historico_status["mensaje"] = msg
@@ -107,11 +86,11 @@ def index():
 @app.route("/api/lotes")
 def api_lotes():
     filas = db.query_lotes(
-        fuente=request.args.get("fuente") or None,
-        estado=request.args.get("estado") or None,
-        tipo_subasta=request.args.get("tipo_subasta") or None,
-        tipo_bien=request.args.get("tipo_bien") or None,
-        provincia=request.args.get("provincia") or None,
+        fuente=request.args.getlist("fuente") or None,
+        estado=request.args.getlist("estado") or None,
+        tipo_subasta=request.args.getlist("tipo_subasta") or None,
+        tipo_bien=request.args.getlist("tipo_bien") or None,
+        provincia=request.args.getlist("provincia") or None,
         texto=request.args.get("texto") or None,
     )
     return jsonify(filas)
@@ -127,32 +106,6 @@ def api_opciones():
         "tipos_bien": sorted({r["tipo_bien"] for r in filas if r["tipo_bien"]}),
         "provincias": sorted({r["provincia"] for r in filas if r["provincia"]}),
     })
-
-
-@app.route("/api/export")
-def api_export():
-    filas = db.query_lotes(
-        fuente=request.args.get("fuente") or None,
-        estado=request.args.get("estado") or None,
-        tipo_subasta=request.args.get("tipo_subasta") or None,
-        tipo_bien=request.args.get("tipo_bien") or None,
-        provincia=request.args.get("provincia") or None,
-        texto=request.args.get("texto") or None,
-    )
-    # Se arma en memoria (BytesIO) en vez de pasar por un archivo temporal
-    # en disco: en el .exe de Windows un antivirus o el propio SO puede
-    # tener el archivo brevemente bloqueado justo cuando send_file intenta
-    # leerlo de vuelta, y el navegador termina descargando algo vacio o
-    # incompleto con extension .xlsx pero que no es un Excel valido.
-    buffer = io.BytesIO()
-    export.exportar(filas, buffer)
-    buffer.seek(0)
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name="subastas-filtradas.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
 
 
 @app.route("/api/sync", methods=["POST"])
