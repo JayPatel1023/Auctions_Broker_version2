@@ -31,6 +31,8 @@ else:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 import io
+import time
+import urllib.request
 
 import webview
 from webview import FileDialog
@@ -46,7 +48,23 @@ PORT = 5057
 
 
 def _run_flask():
-    app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
+    app.run(host=HOST, port=PORT, debug=False, use_reloader=False, threaded=True)
+
+
+def _esperar_flask_listo(timeout=10.0):
+    """Flask arranca en un hilo aparte (ver main()); si la ventana intenta
+    cargar la url antes de que el servidor este realmente escuchando, la
+    carga inicial falla o queda en un estado raro. Se espera de forma
+    activa a que responda antes de crear la ventana."""
+    limite = time.time() + timeout
+    while time.time() < limite:
+        try:
+            urllib.request.urlopen(f"http://{HOST}:{PORT}/", timeout=0.5)
+            return True
+        except Exception:
+            time.sleep(0.1)
+    log.warning("Flask no respondio dentro de %ss, se abre la ventana igual", timeout)
+    return False
 
 
 class Api:
@@ -61,6 +79,16 @@ class Api:
     nativo "Guardar como" y escribiendo el archivo nosotros mismos, la
     extension queda siempre bajo nuestro control, sin pasar por esa
     conversion de WebView2.
+
+    La referencia a la ventana nativa se guarda en _window (con guion bajo)
+    a proposito: pywebview expone TODOS los atributos publicos de este objeto
+    al puente de JavaScript, asi que guardarla como self.window hacia que
+    pywebview intentara serializar la ventana entera (incluyendo objetos COM
+    internos de Windows como AccessibilityObject) para exponerla a JS. Eso
+    dispara una recursion infinita del lado de Windows apenas la pagina carga
+    o se hace click en cualquier lado - confirmado con el mismo error
+    reportado por otros usuarios de pywebview con el mismo patron
+    (self.window publico en la clase de la API).
     """
 
     def export_excel(self, filtros):
@@ -75,7 +103,7 @@ class Api:
         buffer = io.BytesIO()
         export.exportar(filas, buffer)
 
-        ruta = self.window.create_file_dialog(
+        ruta = self._window.create_file_dialog(
             FileDialog.SAVE,
             save_filename="subastas-filtradas.xlsx",
             file_types=("Archivos Excel (*.xlsx)",),
@@ -91,6 +119,7 @@ class Api:
 def main():
     db.init_db()
     threading.Thread(target=_run_flask, daemon=True).start()
+    _esperar_flask_listo()
 
     # pywebview bloquea descargas por defecto (ALLOW_DOWNLOADS=False). Ya no
     # dependemos de esto para el export a Excel (ver Api.export_excel), pero
@@ -104,10 +133,9 @@ def main():
         width=1150,
         height=760,
         min_size=(900, 600),
-        maximized=True,
         js_api=api,
     )
-    api.window = window
+    api._window = window
     webview.start()
 
 
