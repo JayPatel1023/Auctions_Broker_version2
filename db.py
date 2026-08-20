@@ -6,10 +6,27 @@ Columnas de `lotes` calcadas del Excel real del cliente
 para que el export a Excel reproduzca exactamente su formato de siempre.
 """
 
+import re
 import sqlite3
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent / "auctions_broker.db"
+
+
+def _fecha_iso(texto):
+    """'17-08-2026 18:00:00 CET' o '17/08/2026 a las 18:00' -> '2026-08-17'.
+    BOE/Seg Social siempre mandan la fecha en dia-mes-año, con '-' o '/' y
+    texto variable atras (hora, zona horaria, "a las...") - se guarda en
+    formato ISO ademas del texto original para poder ordenar y filtrar por
+    rango de fecha de verdad (un texto DD-MM-YYYY ordenado como texto da
+    resultados incorrectos apenas cruza de mes)."""
+    if not texto:
+        return None
+    m = re.search(r"(\d{2})[-/](\d{2})[-/](\d{4})", texto)
+    if not m:
+        return None
+    dia, mes, anio = m.groups()
+    return f"{anio}-{mes}-{dia}"
 
 HEADERS = [
     "Cantidad Reclamada / Valor Subasta",
@@ -64,6 +81,8 @@ COLUMNS = [
     "nombre",
     "fecha_inicio",
     "fecha_conclusion",
+    "fecha_inicio_iso",
+    "fecha_conclusion_iso",
     "last_synced",
 ]
 
@@ -104,6 +123,8 @@ def init_db():
             nombre TEXT,
             fecha_inicio TEXT,
             fecha_conclusion TEXT,
+            fecha_inicio_iso TEXT,
+            fecha_conclusion_iso TEXT,
             last_synced TEXT
         )
         """
@@ -122,7 +143,12 @@ def init_db():
 
 
 def upsert_lote(row: dict):
-    """row debe traer las claves de COLUMNS (menos last_synced, se pone solo)."""
+    """row debe traer las claves de COLUMNS (menos last_synced y las
+    *_iso, que se calculan solas a partir de fecha_inicio/fecha_conclusion)."""
+    row = dict(row)
+    row["fecha_inicio_iso"] = _fecha_iso(row.get("fecha_inicio"))
+    row["fecha_conclusion_iso"] = _fecha_iso(row.get("fecha_conclusion"))
+
     conn = get_conn()
     c = conn.cursor()
     placeholders = ",".join("?" for _ in COLUMNS)
@@ -141,7 +167,8 @@ def upsert_lote(row: dict):
     conn.close()
 
 
-def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None):
+def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
+                 fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None):
     """fuente/estado/tipo_subasta/categoria_subasta/tipo_bien/provincia:
     None o una lista de valores a combinar con OR (IN), para poder tildar
     varias opciones a la vez por filtro -como en el buscador real de BOE
@@ -152,7 +179,12 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
     categoria_subasta son las 5 categorias fijas reales de BOE (Judicial/
     Notarial/AEAT/Otras administraciones tributarias/Subastas
     administrativas generales) - el filtro "Tipo de subasta" del buscador
-    usa esta, no tipo_subasta."""
+    usa esta, no tipo_subasta.
+
+    fecha_*_desde/hasta: strings 'YYYY-MM-DD' (lo que devuelve un <input
+    type=date>), se comparan contra fecha_inicio_iso/fecha_conclusion_iso
+    -las mismas 2 fechas que tiene el formulario real de BOE (Fecha inicio
+    Subasta / Fecha fin Subasta)."""
     conn = get_conn()
     c = conn.cursor()
     sql = "SELECT * FROM lotes WHERE 1=1"
@@ -174,7 +206,20 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
         sql += " AND (descripcion LIKE ? OR id LIKE ?)"
         like = f"%{texto}%"
         params += [like, like]
-    sql += " ORDER BY fecha_conclusion"
+
+    def rango_fecha(columna_iso, desde, hasta):
+        nonlocal sql
+        if desde:
+            sql += f" AND {columna_iso} >= ?"
+            params.append(desde)
+        if hasta:
+            sql += f" AND {columna_iso} <= ?"
+            params.append(hasta)
+
+    rango_fecha("fecha_inicio_iso", fecha_inicio_desde, fecha_inicio_hasta)
+    rango_fecha("fecha_conclusion_iso", fecha_conclusion_desde, fecha_conclusion_hasta)
+
+    sql += " ORDER BY fecha_conclusion_iso"
     c.execute(sql, params)
     rows = [dict(r) for r in c.fetchall()]
     conn.close()

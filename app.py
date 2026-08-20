@@ -108,6 +108,10 @@ def api_lotes():
         tipo_bien=request.args.getlist("tipo_bien") or None,
         provincia=request.args.getlist("provincia") or None,
         texto=request.args.get("texto") or None,
+        fecha_inicio_desde=request.args.get("fecha_inicio_desde") or None,
+        fecha_inicio_hasta=request.args.get("fecha_inicio_hasta") or None,
+        fecha_conclusion_desde=request.args.get("fecha_conclusion_desde") or None,
+        fecha_conclusion_hasta=request.args.get("fecha_conclusion_hasta") or None,
     )
     return jsonify(filas)
 

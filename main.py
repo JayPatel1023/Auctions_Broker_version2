@@ -99,6 +99,10 @@ class Api:
             tipo_bien=filtros.get("tipo_bien") or None,
             provincia=filtros.get("provincia") or None,
             texto=filtros.get("texto") or None,
+            fecha_inicio_desde=filtros.get("fecha_inicio_desde") or None,
+            fecha_inicio_hasta=filtros.get("fecha_inicio_hasta") or None,
+            fecha_conclusion_desde=filtros.get("fecha_conclusion_desde") or None,
+            fecha_conclusion_hasta=filtros.get("fecha_conclusion_hasta") or None,
         )
         buffer = io.BytesIO()
         export.exportar(filas, buffer)

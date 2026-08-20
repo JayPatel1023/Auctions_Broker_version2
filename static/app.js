@@ -99,6 +99,10 @@
   }
 
   var fText = document.getElementById("f-text");
+  var fFechaInicioDesde = document.getElementById("f-fecha-inicio-desde");
+  var fFechaInicioHasta = document.getElementById("f-fecha-inicio-hasta");
+  var fFechaFinDesde = document.getElementById("f-fecha-fin-desde");
+  var fFechaFinHasta = document.getElementById("f-fecha-fin-hasta");
   var mFuente = crearMultiSelect(document.getElementById("msel-fuente"), "Fuente");
   var mEstado = crearMultiSelect(document.getElementById("msel-estado"), "Estado");
   var mTipoSub = crearMultiSelect(document.getElementById("msel-tiposub"), "Tipo de subasta");
@@ -172,6 +176,10 @@
       tipo_bien: mTipoBien.getValues(),
       provincia: mProv.getValues(),
       texto: fText.value.trim(),
+      fecha_inicio_desde: fFechaInicioDesde.value,
+      fecha_inicio_hasta: fFechaInicioHasta.value,
+      fecha_conclusion_desde: fFechaFinDesde.value,
+      fecha_conclusion_hasta: fFechaFinHasta.value,
     };
   }
 
@@ -181,6 +189,9 @@
       (f[k] || []).forEach(function (v) { p.append(k, v); });
     });
     if (f.texto) p.set("texto", f.texto);
+    ["fecha_inicio_desde", "fecha_inicio_hasta", "fecha_conclusion_desde", "fecha_conclusion_hasta"].forEach(function (k) {
+      if (f[k]) p.set(k, f[k]);
+    });
     return p;
   }
 
@@ -315,9 +326,13 @@
   mFuente.onChange(function () { actualizarFiltrosSegunFuente(); cargar(); });
   [mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.onChange(cargar); });
   fText.addEventListener("input", cargar);
+  [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(function (el) {
+    el.addEventListener("change", cargar);
+  });
   document.getElementById("f-clear").addEventListener("click", function () {
     [mFuente, mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.clear(); });
     fText.value = "";
+    [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(function (el) { el.value = ""; });
     actualizarFiltrosSegunFuente();
     cargar();
   });

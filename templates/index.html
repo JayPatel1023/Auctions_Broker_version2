@@ -80,6 +80,14 @@
           <input type="text" id="f-text" placeholder="Buscar por id o descripción">
           <button class="btn ghost" id="f-clear">Limpiar</button>
         </div>
+        <div class="filters-row date-filters">
+          <label class="date-group">Fecha inicio subasta
+            <input type="date" id="f-fecha-inicio-desde"> <span>–</span> <input type="date" id="f-fecha-inicio-hasta">
+          </label>
+          <label class="date-group">Fecha fin subasta
+            <input type="date" id="f-fecha-fin-desde"> <span>–</span> <input type="date" id="f-fecha-fin-hasta">
+          </label>
+        </div>
         <div class="sheet-note" style="margin-top:0;padding-top:0;border-top:none;">Tildá varias opciones dentro de un mismo filtro para combinarlas, igual que en subastas.boe.es.</div>
         <div class="count-note" id="table-count">Sin datos todavía. Tocá "Actualizar" para traer subastas reales.</div>
         <div class="filters-row" style="margin-bottom:0;">
