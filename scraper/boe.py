@@ -36,8 +36,12 @@ ESTADOS = {
     "EJ": "Celebrándose",
     "SU": "Suspendida",
     "CA": "Cancelada",
-    "PC": "Concluida",
-    "FS": "Concluida",
+    # PC y FS se mostraban las dos como "Concluida", pero son estados
+    # distintos en el formulario real de BOE (confirmado contra el
+    # formulario de busqueda avanzada) - el cliente lo señalo como filtro
+    # incompleto porque no podia elegir uno sin el otro.
+    "PC": "Concluida en Portal de Subastas",
+    "FS": "Finalizada por Autoridad Gestora",
 }
 ESTADOS_ACTIVOS = ["PU", "EJ", "SU", "CA"]
 ESTADOS_HISTORICOS = ["PC", "FS"]

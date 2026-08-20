@@ -114,7 +114,7 @@
   // union; tildando solo una se acota a sus categorias reales.
   var TIPO_BIEN_BOE = ["Inmueble", "Vehículo", "Bien mueble"];
   var TIPO_BIEN_SS = ["Finca Rústica", "Finca Urbana", "Vehículo", "Embarcación", "Resto de Bienes Muebles"];
-  var ESTADOS_BOE = ["Próxima apertura", "Celebrándose", "Suspendida", "Cancelada", "Concluida"];
+  var ESTADOS_BOE = ["Próxima apertura", "Celebrándose", "Suspendida", "Cancelada", "Concluida en Portal de Subastas", "Finalizada por Autoridad Gestora"];
   var ESTADOS_SS = ["Próxima apertura", "Celebrándose", "Concluida"];
 
   function union(a, b) {
@@ -155,7 +155,7 @@
     if (estado === "Suspendida" || estado === "Cancelada") {
       return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>' + estado + '</span>';
     }
-    return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Concluida</span>';
+    return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' + (estado || "Concluida") + '</span>';
   }
 
   function filtrosActuales() {
