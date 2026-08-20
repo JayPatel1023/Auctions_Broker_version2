@@ -206,13 +206,68 @@ class BOEScraper:
     # ---------- detalle ----------
 
     def detalle(self, id_sub: str):
-        """Trae los campos financieros + el/los bien(es) de una subasta.
-        Devuelve un dict listo para combinar con la fila del listado."""
+        """Trae los campos financieros + el bien de una subasta de un solo
+        lote. Para subastas con varios lotes, cada uno se subasta por
+        separado con su propio valor/tasacion/puja minima -usar
+        detalle_lotes() en su lugar (ver ese metodo)."""
         datos = {}
         datos.update(self._detalle_financiero(id_sub))
         datos.update(self._detalle_bien(id_sub))
         self._wait()
         return datos
+
+    def detalle_lotes(self, id_sub: str):
+        """Devuelve una lista con un dict por cada lote de la subasta (la
+        mayoria de subastas tienen un solo lote, esa lista tiene 1 elemento).
+
+        Confirmado en vivo contra subastas.boe.es: cuando una subasta tiene
+        varios lotes se subastan por separado, cada uno con su propio valor
+        de subasta / tasacion / puja minima / tramos / deposito / descripcion
+        / direccion, a los que solo se accede pasando idLote=1..N a
+        detalleSubasta.php?ver=3 - sin ese parametro esos campos financieros
+        quedan en texto generico ("Ver valor de subasta en cada lote...") en
+        vez del numero real. Antes esto se resolvia consultando una sola vez
+        sin idLote, lo que en subastas multi-lote traia el bien del lote 1
+        nada mas y ningun valor financiero real."""
+        comunes = self._detalle_financiero(id_sub)
+        self._wait()
+
+        valor_lotes = str(comunes.get("lotes", "")).lower()
+        n = 1
+        m = re.search(r"\d+", valor_lotes)
+        if "sin lotes" not in valor_lotes and m:
+            n = int(m.group(0))
+
+        resultado = []
+        for i in range(1, n + 1):
+            bien = self._detalle_bien(id_sub, id_lote=i if n > 1 else None)
+            self._wait()
+            fila = dict(comunes)
+            fila.update({
+                "tipo_bien": bien.get("tipo_bien", ""),
+                "descripcion": bien.get("descripcion", ""),
+                "referencia_catastral": bien.get("referencia_catastral", ""),
+                "direccion": bien.get("direccion", ""),
+                "localidad": bien.get("localidad", ""),
+                "provincia": bien.get("provincia", ""),
+                "marca": bien.get("marca", ""),
+                "modelo": bien.get("modelo", ""),
+                "matricula": bien.get("matricula", ""),
+            })
+            if n > 1:
+                for campo, campo_lote in [
+                    ("valor_subasta", "valor_subasta_lote"),
+                    ("valor_tasacion", "valor_tasacion_lote"),
+                    ("puja_minima", "puja_minima_lote"),
+                    ("tramos_entre_pujas", "tramos_entre_pujas_lote"),
+                    ("importe_deposito", "importe_deposito_lote"),
+                ]:
+                    if bien.get(campo_lote) is not None:
+                        fila[campo] = bien[campo_lote]
+                fila["id"] = f"{id_sub}-L{i}"
+                fila["numero_lote"] = i
+            resultado.append(fila)
+        return resultado
 
     def _tabla_a_dict(self, soup):
         out = {}
@@ -247,12 +302,15 @@ class BOEScraper:
             "lotes": campos.get("Lotes", ""),
         }
 
-    def _detalle_bien(self, id_sub: str):
+    def _detalle_bien(self, id_sub: str, id_lote=None):
+        params = {"idSub": id_sub, "ver": 3}
+        if id_lote is not None:
+            params["idLote"] = id_lote
         try:
-            resp = self.session.get(DETALLE_URL, params={"idSub": id_sub, "ver": 3}, timeout=30)
+            resp = self.session.get(DETALLE_URL, params=params, timeout=30)
             resp.raise_for_status()
         except requests.RequestException as e:
-            log.warning(f"No se pudo obtener detalle de bien de {id_sub}: {e}")
+            log.warning(f"No se pudo obtener detalle de bien de {id_sub} (lote {id_lote}): {e}")
             return {}
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -269,11 +327,13 @@ class BOEScraper:
             if m:
                 tipo_bien = m.group(1).strip()
 
-        campos = {}
-        if h4:
-            tabla = h4.find_next("table")
-            if tabla:
-                campos = self._tabla_a_dict(BeautifulSoup(str(tabla), "html.parser"))
+        # La pagina ver=3 tiene 2 tablas separadas: una ANTES del titulo
+        # "Bien N" con los campos financieros del lote (Valor Subasta, Puja
+        # minima, etc.) y otra DESPUES con los datos del bien (Descripcion,
+        # Referencia catastral, etc.) - confirmado en vivo. Parsear toda la
+        # pagina de una junta ambas sin pisarse (no comparten nombres de
+        # campo).
+        campos = self._tabla_a_dict(soup)
 
         return {
             "tipo_bien": tipo_bien,
@@ -285,6 +345,17 @@ class BOEScraper:
             "marca": campos.get("Marca", ""),
             "modelo": campos.get("Modelo", ""),
             "matricula": campos.get("Matrícula", campos.get("Matricula", "")),
+            # Esta pagina (ver=3) trae el valor REAL por lote cuando la
+            # subasta tiene varios lotes -en _detalle_financiero esos campos
+            # quedan en texto tipo "Ver valor de subasta en cada lote" para
+            # subastas asi. Con un solo lote coincide con lo que ya trae
+            # _detalle_financiero, por eso detalle_lotes() solo los usa
+            # cuando hay mas de un lote.
+            "valor_subasta_lote": _money_to_float(campos.get("Valor Subasta")),
+            "valor_tasacion_lote": _money_to_float(campos.get("Valor de tasación")),
+            "puja_minima_lote": _money_to_float(campos.get("Puja mínima")),
+            "tramos_entre_pujas_lote": _money_to_float(campos.get("Tramos entre pujas")),
+            "importe_deposito_lote": _money_to_float(campos.get("Importe del depósito")),
         }
 
     # ---------- orquestacion ----------

@@ -173,9 +173,14 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
             continue
         for lote in lotes:
             if con_detalle:
-                lote.update(scraper.detalle(lote["id"]))
-            db.upsert_lote(_lote_a_fila_db(lote))
-            total += 1
+                for fila_lote in scraper.detalle_lotes(lote["id"]):
+                    combinado = dict(lote)
+                    combinado.update(fila_lote)
+                    db.upsert_lote(_lote_a_fila_db(combinado))
+                    total += 1
+            else:
+                db.upsert_lote(_lote_a_fila_db(lote))
+                total += 1
 
     db.set_sync_state("BOE Subastas", last_full_sync=datetime.now().isoformat(timespec="seconds"))
     return total
@@ -237,9 +242,14 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
                 progreso(msg)
             for lote in lotes:
                 if con_detalle:
-                    lote.update(scraper.detalle(lote["id"]))
-                db.upsert_lote(_lote_a_fila_db(lote))
-                total += 1
+                    for fila_lote in scraper.detalle_lotes(lote["id"]):
+                        combinado = dict(lote)
+                        combinado.update(fila_lote)
+                        db.upsert_lote(_lote_a_fila_db(combinado))
+                        total += 1
+                else:
+                    db.upsert_lote(_lote_a_fila_db(lote))
+                    total += 1
 
         db.set_sync_state("BOE Subastas Historico", last_combo=clave)
 
