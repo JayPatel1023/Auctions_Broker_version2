@@ -11,6 +11,7 @@ BOE Subastas + Seguridad Social. Dos modos:
 
 import logging
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 
 from scraper.boe import BOEScraper, PROVINCIAS, ESTADOS_ACTIVOS, ESTADOS_HISTORICOS, ESTADOS
@@ -47,6 +48,27 @@ PRINCIPALES_PROVINCIAS = [
 # barrido completo de "Actualizar" pasaba los 10 minutos. Se baja a 6 para
 # que el tiempo total quede parecido al de antes.
 LIMITE_POR_COMBO_DEFECTO = 6
+
+
+def _normalizar_texto(texto):
+    sin_tildes = unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode()
+    return sin_tildes.upper().strip()
+
+
+# Seguridad Social escribe el nombre de provincia tal cual lo tiene su sitio
+# (todo mayusculas, sin acentos consistentes - "MALAGA", a veces "MÁLAGA"),
+# mientras que BOE (y el filtro de Provincia de la app) usan el nombre bien
+# escrito ("Málaga"). Sin normalizar, filtrar por "Málaga" con Seguridad
+# Social tildado no encontraba ninguna fila de esa fuente aunque existieran
+# en la base - confirmado en vivo.
+_PROVINCIA_CANONICA = {}
+for _nombre in PROVINCIAS.values():
+    _PROVINCIA_CANONICA[_normalizar_texto(_nombre)] = _nombre
+    _PROVINCIA_CANONICA.setdefault(_normalizar_texto(_nombre.split("/")[0]), _nombre)
+
+
+def _provincia_canonica(texto):
+    return _PROVINCIA_CANONICA.get(_normalizar_texto(texto), texto)
 
 
 def _lotes_a_entero(valor):
@@ -130,7 +152,7 @@ def _lote_seg_social_a_fila_db(lote: dict) -> dict:
         "categoria_subasta": "",
         "tipo_bien": lote.get("tipo_bien", ""),
         "lotes": _lotes_a_entero(lote.get("lotes")),
-        "provincia": lote.get("provincia") or lote.get("provincia_busqueda", ""),
+        "provincia": _provincia_canonica(lote.get("provincia") or lote.get("provincia_busqueda", "")),
         "localidad": lote.get("localidad", ""),
         "direccion": lote.get("direccion", ""),
         "descripcion": lote.get("descripcion", ""),
@@ -201,11 +223,23 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
             continue
         for lote in lotes:
             if con_detalle:
-                for fila_lote in scraper.detalle_lotes(lote["id"]):
+                filas_lote = scraper.detalle_lotes(lote["id"])
+                ids_nuevos = []
+                for fila_lote in filas_lote:
                     combinado = dict(lote)
                     combinado.update(fila_lote)
-                    db.upsert_lote(_lote_a_fila_db(combinado))
+                    fila_db = _lote_a_fila_db(combinado)
+                    db.upsert_lote(fila_db)
+                    ids_nuevos.append(fila_db["id"])
                     total += 1
+                if ids_nuevos:
+                    # si esta subasta tenia mas lotes en una sincronizacion
+                    # anterior (o antes tenia 1 y ahora tiene varios, o al
+                    # reves), esto borra las filas que ya no corresponden -
+                    # ver db.limpiar_lotes_huerfanos. Si filas_lote vino
+                    # vacia (fallo de red en detalle_lotes) no se toca nada,
+                    # se reintenta en la proxima sincronizacion.
+                    db.limpiar_lotes_huerfanos(lote["id"], ids_nuevos)
             else:
                 db.upsert_lote(_lote_a_fila_db(lote))
                 total += 1
@@ -270,11 +304,17 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
                 progreso(msg)
             for lote in lotes:
                 if con_detalle:
-                    for fila_lote in scraper.detalle_lotes(lote["id"]):
+                    filas_lote = scraper.detalle_lotes(lote["id"])
+                    ids_nuevos = []
+                    for fila_lote in filas_lote:
                         combinado = dict(lote)
                         combinado.update(fila_lote)
-                        db.upsert_lote(_lote_a_fila_db(combinado))
+                        fila_db = _lote_a_fila_db(combinado)
+                        db.upsert_lote(fila_db)
+                        ids_nuevos.append(fila_db["id"])
                         total += 1
+                    if ids_nuevos:
+                        db.limpiar_lotes_huerfanos(lote["id"], ids_nuevos)
                 else:
                     db.upsert_lote(_lote_a_fila_db(lote))
                     total += 1

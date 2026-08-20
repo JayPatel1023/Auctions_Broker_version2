@@ -250,13 +250,22 @@
   function cargar() {
     var params = paramsDeFiltros(filtrosActuales());
     fetch("/api/lotes?" + params.toString())
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error("El servidor respondió " + r.status);
+        return r.json();
+      })
       .then(function (rows) {
         document.getElementById("table-count").textContent = rows.length
           ? "Mostrando " + rows.length + " lotes"
           : 'Sin resultados. Si todavía no sincronizaste, tocá "Actualizar".';
         renderKPIs(rows);
         renderTable(rows);
+      })
+      .catch(function (err) {
+        // Sin esto, un error del servidor (ej. una base vieja sin migrar)
+        // dejaba la tabla vacia sin ningun aviso - parecia que la app no
+        // tenia datos en vez de mostrar que algo fallo.
+        document.getElementById("table-count").textContent = "Error cargando los datos: " + err.message;
       });
   }
 

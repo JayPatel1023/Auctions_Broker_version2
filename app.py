@@ -4,7 +4,7 @@ Auctions Broker - servidor local (Flask).
 No es un sitio publico: corre en 127.0.0.1 y lo abre pywebview como
 ventana nativa (ver main.py). BOE Subastas + Seguridad Social.
 Dos sincronizaciones separadas, cada una con su propio estado:
-- rapida (boton "Actualizar", y automatica una vez por dia al abrir la app)
+- rapida (boton "Actualizar", acotada a la provincia/fuente tildada en el filtro si hay alguna elegida)
 - historica (boton "Descargar histórico completo", resumible, corre en
   segundo plano mientras la app este abierta)
 """
@@ -49,7 +49,11 @@ def _sync_en_segundo_plano(provincias=None, fuentes=None):
         sync_status["mensaje"] = msg
 
     try:
-        acotado = bool(provincias)
+        # Sacar el limite de lotes por combinacion solo vale la pena si son
+        # pocas provincias puntuales - con muchas tildadas a la vez (nada
+        # impide tildar 20+ en el filtro), sin limite podria tardar mas de
+        # una hora y no hay forma de cancelar una sync en curso.
+        acotado = bool(provincias) and len(provincias) <= 3
         provincias_sync = provincias or PRINCIPALES_PROVINCIAS
         limite = None if acotado else LIMITE_POR_COMBO_DEFECTO
         total = 0

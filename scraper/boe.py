@@ -69,6 +69,18 @@ USER_AGENTS = [
 ]
 
 EXCESO_MSG = "es excesivo"
+# Confirmado en vivo (dos veces, en sesiones separadas): tras suficientes
+# pedidos seguidos, BOE responde con esta pagina de verificacion en vez de
+# resultados - status 200, sin "es excesivo", sin ningun li.resultado-busqueda,
+# indistinguible de "0 resultados reales" si no se chequea explicitamente.
+# Sin este chequeo, una sincronizacion que se cruza con esto queda con
+# datos truncados a la mitad y ningun aviso de que algo salio mal.
+# OJO: BOE manda los acentos como entidades HTML (ej. "Verificaci&#xF3;n"),
+# asi que buscar el texto "Verificación" tal cual (con la o-con-tilde en
+# UTF-8) nunca matchea - confirmado con el response real. "captcha" en
+# minuscula aparece varias veces en la pagina (ids/clases del formulario)
+# y no tiene ningun caracter especial que se pueda codificar distinto.
+CAPTCHA_MSG = "captcha"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("boe")
@@ -157,6 +169,14 @@ class BOEScraper:
             )
             return [], False, True
 
+        if CAPTCHA_MSG in resp.text:
+            raise RuntimeError(
+                "BOE pidió una verificación de seguridad (probablemente por "
+                "muchas consultas seguidas). Esperá unos minutos y volvé a "
+                "intentar - si seguía sincronizando en silencio, los datos "
+                "hubieran quedado incompletos sin ningún aviso."
+            )
+
         lotes, hay_mas = self._parse_listado(resp.text, provincia_cod, estado_cod)
         self._wait()
         return lotes, hay_mas, False
@@ -235,6 +255,17 @@ class BOEScraper:
         nada mas y ningun valor financiero real."""
         comunes = self._detalle_financiero(id_sub)
         self._wait()
+
+        if not comunes:
+            # Fallo de red/timeout en _detalle_financiero (ya devuelve {} en
+            # ese caso, ver el except mas abajo en ese metodo). Antes esto
+            # caia al default n=1 y armaba una fila con el id SIN sufijo de
+            # lote, que en una subasta multi-lote ya sincronizada antes
+            # quedaba como una fila extra huerfana (ni pisa "-L1" ni "-L2",
+            # los dos tienen id distinto) en vez de simplemente reintentar
+            # en la proxima sincronizacion.
+            log.warning(f"Sin datos financieros para {id_sub}, se salta esta vuelta (se reintenta en la proxima sync)")
+            return []
 
         valor_lotes = str(comunes.get("lotes", "")).lower()
         n = 1
