@@ -106,6 +106,12 @@
   var mProv = crearMultiSelect(document.getElementById("msel-prov"), "Provincia");
 
   mFuente.setOptions(["BOE Subastas", "Seguridad Social"]);
+  // Categorias reales del formulario de busqueda avanzada de BOE
+  // (parametro dato[0] / SUBASTA.ORIGEN, confirmado en vivo) - antes este
+  // filtro mostraba texto libre ("JUDICIAL EN VIA DE APREMIO") sacado de
+  // lo que ya se hubiera sincronizado, que nunca coincidia con las
+  // opciones reales del sitio.
+  mTipoSub.setOptions(["Judicial", "Notarial", "AEAT", "Otras administraciones tributarias", "Subastas administrativas generales"]);
   mProv.setOptions(PROVINCIAS);
 
   // BOE Subastas y Seguridad Social usan categorias distintas (pedido del
@@ -162,7 +168,7 @@
     return {
       fuente: mFuente.getValues(),
       estado: mEstado.getValues(),
-      tipo_subasta: mTipoSub.getValues(),
+      categoria_subasta: mTipoSub.getValues(),
       tipo_bien: mTipoBien.getValues(),
       provincia: mProv.getValues(),
       texto: fText.value.trim(),
@@ -171,7 +177,7 @@
 
   function paramsDeFiltros(f) {
     var p = new URLSearchParams();
-    ["fuente", "estado", "tipo_subasta", "tipo_bien", "provincia"].forEach(function (k) {
+    ["fuente", "estado", "categoria_subasta", "tipo_bien", "provincia"].forEach(function (k) {
       (f[k] || []).forEach(function (v) { p.append(k, v); });
     });
     if (f.texto) p.set("texto", f.texto);
@@ -243,18 +249,6 @@
       });
   }
 
-  function cargarOpciones() {
-    // "Tipo de bien" y "Estado" salen de listas fijas segun fuente (ver
-    // actualizarFiltrosSegunFuente). "Tipo de subasta" no tiene lista fija
-    // en el sitio de BOE, asi que se arma con lo que ya trajo la
-    // sincronizacion - setOptions conserva la seleccion tildada si sigue
-    // siendo valida, aunque esto se llame cada pocos segundos durante una
-    // sincronizacion en curso.
-    fetch("/api/opciones")
-      .then(function (r) { return r.json(); })
-      .then(function (op) { mTipoSub.setOptions(op.tipos_subasta); });
-  }
-
   var pollTimer = null;
 
   function actualizarEstadoConexion() {
@@ -283,7 +277,6 @@
         statusText.textContent = e.mensaje_sync || "Sincronizando...";
         // refrescar tabla/KPIs en cada tick, no solo al terminar, para que
         // se vea crecer en vivo en vez de quedar en "0" hasta el final
-        cargarOpciones();
         cargar();
         if (!e.sincronizando) {
           clearInterval(pollTimer);
@@ -308,7 +301,6 @@
     pollTimerHistorico = setInterval(function () {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.historico_mensaje || "Descargando histórico...";
-        cargarOpciones();
         cargar();
         if (!e.historico_en_progreso) {
           clearInterval(pollTimerHistorico);
@@ -381,7 +373,6 @@
       });
   });
 
-  cargarOpciones();
   cargar();
   actualizarEstadoConexion().then(function (e) {
     // si el barrido historico ya estaba corriendo (p.ej. quedo prendido

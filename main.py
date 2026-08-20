@@ -95,7 +95,7 @@ class Api:
         filas = db.query_lotes(
             fuente=filtros.get("fuente") or None,
             estado=filtros.get("estado") or None,
-            tipo_subasta=filtros.get("tipo_subasta") or None,
+            categoria_subasta=filtros.get("categoria_subasta") or None,
             tipo_bien=filtros.get("tipo_bien") or None,
             provincia=filtros.get("provincia") or None,
             texto=filtros.get("texto") or None,

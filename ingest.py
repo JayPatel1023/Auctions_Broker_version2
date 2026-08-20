@@ -59,12 +59,37 @@ def _lotes_a_entero(valor):
     return int(m.group(0)) if m else 1
 
 
+# El filtro "Tipo de subasta" de la app comparaba contra tipo_subasta, un
+# texto libre sacado del detalle de cada subasta (ej. "JUDICIAL EN VIA DE
+# APREMIO") que solo tiene las opciones que ya se hayan sincronizado - por
+# eso nunca coincidia con las categorias reales de BOE. El formulario real
+# de busqueda avanzada de BOE (dato[0] / SUBASTA.ORIGEN) tiene 5 categorias
+# fijas: Judicial/Notarial/AEAT/Otras administraciones tributarias/Subastas
+# administrativas generales. Confirmado en vivo contra ese parametro: la
+# primera letra del segundo tramo del id coincide siempre con la categoria
+# (JA/JC/JV -> J, NE/NV/NH -> N, AT -> A, RC -> R, GA -> G), asi que se
+# puede derivar sin pedidos extra al sitio.
+_CATEGORIA_POR_LETRA = {
+    "J": "Judicial",
+    "N": "Notarial",
+    "A": "AEAT",
+    "R": "Otras administraciones tributarias",
+    "G": "Subastas administrativas generales",
+}
+
+
+def _categoria_subasta(id_sub):
+    m = re.match(r"SUB-([A-Z])", id_sub or "")
+    return _CATEGORIA_POR_LETRA.get(m.group(1), "") if m else ""
+
+
 def _lote_a_fila_db(lote: dict) -> dict:
     return {
         "id": lote["id"],
         "fuente": "BOE Subastas",
         "estado": lote.get("estado", ""),
         "tipo_subasta": lote.get("tipo_subasta", ""),
+        "categoria_subasta": _categoria_subasta(lote["id"]),
         "tipo_bien": lote.get("tipo_bien", ""),
         "lotes": _lotes_a_entero(lote.get("lotes")),
         "provincia": lote.get("provincia") or lote.get("provincia_busqueda", ""),
@@ -100,6 +125,9 @@ def _lote_seg_social_a_fila_db(lote: dict) -> dict:
         "fuente": "Seguridad Social",
         "estado": _inferir_estado(fecha),
         "tipo_subasta": "RECAUDACIÓN SEGURIDAD SOCIAL",
+        # categoria_subasta (Judicial/Notarial/AEAT/...) es una clasificacion
+        # propia del sitio de BOE, no existe como concepto en seg-social.es.
+        "categoria_subasta": "",
         "tipo_bien": lote.get("tipo_bien", ""),
         "lotes": _lotes_a_entero(lote.get("lotes")),
         "provincia": lote.get("provincia") or lote.get("provincia_busqueda", ""),

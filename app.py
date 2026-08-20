@@ -104,24 +104,12 @@ def api_lotes():
     filas = db.query_lotes(
         fuente=request.args.getlist("fuente") or None,
         estado=request.args.getlist("estado") or None,
-        tipo_subasta=request.args.getlist("tipo_subasta") or None,
+        categoria_subasta=request.args.getlist("categoria_subasta") or None,
         tipo_bien=request.args.getlist("tipo_bien") or None,
         provincia=request.args.getlist("provincia") or None,
         texto=request.args.get("texto") or None,
     )
     return jsonify(filas)
-
-
-@app.route("/api/opciones")
-def api_opciones():
-    """Valores distintos ya presentes en la base, para llenar los filtros."""
-    filas = db.query_lotes()
-    return jsonify({
-        "fuentes": sorted({r["fuente"] for r in filas if r["fuente"]}),
-        "tipos_subasta": sorted({r["tipo_subasta"] for r in filas if r["tipo_subasta"]}),
-        "tipos_bien": sorted({r["tipo_bien"] for r in filas if r["tipo_bien"]}),
-        "provincias": sorted({r["provincia"] for r in filas if r["provincia"]}),
-    })
 
 
 @app.route("/api/sync", methods=["POST"])

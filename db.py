@@ -44,6 +44,7 @@ COLUMNS = [
     "fuente",
     "estado",
     "tipo_subasta",
+    "categoria_subasta",
     "tipo_bien",
     "lotes",
     "provincia",
@@ -83,6 +84,7 @@ def init_db():
             fuente TEXT,
             estado TEXT,
             tipo_subasta TEXT,
+            categoria_subasta TEXT,
             tipo_bien TEXT,
             lotes INTEGER,
             provincia TEXT,
@@ -139,11 +141,18 @@ def upsert_lote(row: dict):
     conn.close()
 
 
-def query_lotes(fuente=None, estado=None, tipo_subasta=None, tipo_bien=None, provincia=None, texto=None):
-    """fuente/estado/tipo_subasta/tipo_bien/provincia: None o una lista de
-    valores a combinar con OR (IN), para poder tildar varias opciones a la
-    vez por filtro -como en el buscador real de BOE Subastas- en vez de
-    forzar una sola opcion por categoria."""
+def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None):
+    """fuente/estado/tipo_subasta/categoria_subasta/tipo_bien/provincia:
+    None o una lista de valores a combinar con OR (IN), para poder tildar
+    varias opciones a la vez por filtro -como en el buscador real de BOE
+    Subastas- en vez de forzar una sola opcion por categoria.
+
+    tipo_subasta es el texto libre que trae cada subasta (ej. "JUDICIAL EN
+    VIA DE APREMIO"), solo tiene los valores que ya se hayan sincronizado.
+    categoria_subasta son las 5 categorias fijas reales de BOE (Judicial/
+    Notarial/AEAT/Otras administraciones tributarias/Subastas
+    administrativas generales) - el filtro "Tipo de subasta" del buscador
+    usa esta, no tipo_subasta."""
     conn = get_conn()
     c = conn.cursor()
     sql = "SELECT * FROM lotes WHERE 1=1"
@@ -158,6 +167,7 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, tipo_bien=None, pro
     in_clause("fuente", fuente)
     in_clause("estado", estado)
     in_clause("tipo_subasta", tipo_subasta)
+    in_clause("categoria_subasta", categoria_subasta)
     in_clause("tipo_bien", tipo_bien)
     in_clause("provincia", provincia)
     if texto:
