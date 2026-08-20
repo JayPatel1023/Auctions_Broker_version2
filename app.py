@@ -19,7 +19,9 @@ from ingest import (
     sync_boe, sync_seg_social, sync_boe_historico, sync_seg_social_historico,
     PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO,
 )
-from scraper.boe import ESTADOS_ACTIVOS as ESTADO_ACTIVOS_COD
+from scraper.boe import ESTADOS_ACTIVOS as ESTADO_ACTIVOS_COD, PROVINCIAS as PROVINCIAS_BOE
+
+COD_POR_NOMBRE_PROVINCIA = {nombre: cod for cod, nombre in PROVINCIAS_BOE.items()}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")
@@ -33,25 +35,39 @@ historico_lock = threading.Lock()
 historico_status = {"en_progreso": False, "mensaje": "", "lotes_procesados": 0}
 
 
-def _sync_en_segundo_plano():
+def _sync_en_segundo_plano(provincias=None, fuentes=None):
+    """provincias: codigos de provincia a sincronizar, o None para las 10
+    principales de siempre. fuentes: subconjunto de {"BOE Subastas",
+    "Seguridad Social"}, o None/vacio para las dos.
+
+    Cuando el usuario acota a provincias puntuales (tildando el filtro de
+    Provincia antes de tocar "Actualizar"), se sincroniza sin el limite de
+    LIMITE_POR_COMBO_DEFECTO lotes por combinacion: ese limite existe para
+    que barrer las 10 provincias principales no tarde de mas, pero si son
+    pocas provincias puntuales no hace falta cortar resultados."""
     def progreso(msg):
         sync_status["mensaje"] = msg
 
     try:
-        total_boe = sync_boe(
-            provincias=PRINCIPALES_PROVINCIAS,
-            estados=ESTADO_ACTIVOS_COD,
-            con_detalle=True,
-            limite_por_combo=LIMITE_POR_COMBO_DEFECTO,
-            progreso=progreso,
-        )
-        total_ss = sync_seg_social(
-            provincias=PRINCIPALES_PROVINCIAS,
-            con_detalle=True,
-            limite_por_combo=LIMITE_POR_COMBO_DEFECTO,
-            progreso=progreso,
-        )
-        total = total_boe + total_ss
+        acotado = bool(provincias)
+        provincias_sync = provincias or PRINCIPALES_PROVINCIAS
+        limite = None if acotado else LIMITE_POR_COMBO_DEFECTO
+        total = 0
+        if not fuentes or "BOE Subastas" in fuentes:
+            total += sync_boe(
+                provincias=provincias_sync,
+                estados=ESTADO_ACTIVOS_COD,
+                con_detalle=True,
+                limite_por_combo=limite,
+                progreso=progreso,
+            )
+        if not fuentes or "Seguridad Social" in fuentes:
+            total += sync_seg_social(
+                provincias=provincias_sync,
+                con_detalle=True,
+                limite_por_combo=limite,
+                progreso=progreso,
+            )
         sync_status["lotes_procesados"] = total
         sync_status["mensaje"] = f"Listo - {total} lotes procesados"
     except Exception as e:
@@ -111,14 +127,24 @@ def api_opciones():
 @app.route("/api/sync", methods=["POST"])
 def api_sync():
     """Arranca la sincronizacion en un hilo aparte y devuelve al toque.
-    El frontend consulta el avance con /api/estado."""
+    El frontend consulta el avance con /api/estado. Si el usuario tildo
+    provincias puntuales en el filtro antes de tocar "Actualizar", solo
+    sincroniza esas (y sin el limite de lotes por combinacion - ver
+    _sync_en_segundo_plano)."""
     with sync_lock:
         if sync_status["en_progreso"]:
             return jsonify({"status": "ya_en_progreso"}), 409
+        nombres_provincia = request.args.getlist("provincia")
+        provincias = [COD_POR_NOMBRE_PROVINCIA[n] for n in nombres_provincia if n in COD_POR_NOMBRE_PROVINCIA] or None
+        fuentes = request.args.getlist("fuente") or None
         sync_status["en_progreso"] = True
         sync_status["mensaje"] = "Arrancando..."
         sync_status["lotes_procesados"] = 0
-        threading.Thread(target=_sync_en_segundo_plano, daemon=True).start()
+        threading.Thread(
+            target=_sync_en_segundo_plano,
+            kwargs={"provincias": provincias, "fuentes": fuentes},
+            daemon=True,
+        ).start()
     return jsonify({"status": "iniciado"})
 
 

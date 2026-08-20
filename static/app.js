@@ -349,8 +349,14 @@
     btn.disabled = true;
     label.textContent = "Actualizando... (puede tardar varios minutos)";
     track.classList.add("active");
-    statusText.textContent = "Sincronizando con BOE Subastas y Seguridad Social...";
-    fetch("/api/sync", { method: "POST" })
+    var provinciasElegidas = mProv.getValues();
+    var params = new URLSearchParams();
+    provinciasElegidas.forEach(function (p) { params.append("provincia", p); });
+    mFuente.getValues().forEach(function (f) { params.append("fuente", f); });
+    statusText.textContent = provinciasElegidas.length
+      ? "Sincronizando " + provinciasElegidas.join(", ") + "..."
+      : "Sincronizando con BOE Subastas y Seguridad Social...";
+    fetch("/api/sync?" + params.toString(), { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function () { pollearSync(); })
       .catch(function () {
