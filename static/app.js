@@ -350,11 +350,22 @@
     var statusText = document.getElementById("status-text");
     var filtros = filtrosActuales();
     statusText.textContent = "Elegí dónde guardar el archivo...";
-    window.pywebview.api.export_excel(filtros).then(function (res) {
-      statusText.textContent = res.ok
-        ? "Exportado: " + res.lotes + " lotes en " + res.ruta
-        : "Listo";
-    });
+    window.pywebview.api.export_excel(filtros)
+      .then(function (res) {
+        if (res.ok) {
+          statusText.textContent = "Exportado: " + res.lotes + " lotes en " + res.ruta;
+        } else if (res.cancelado) {
+          statusText.textContent = "Listo";
+        } else {
+          // Antes, si fallaba escribir el archivo (permisos, carpeta
+          // sincronizada, etc.), esto quedaba con el mensaje "Elegí dónde
+          // guardar..." para siempre, sin decir que algo salio mal.
+          statusText.textContent = "No se pudo guardar el Excel: " + (res.error || "error desconocido");
+        }
+      })
+      .catch(function (err) {
+        statusText.textContent = "No se pudo exportar: " + err;
+      });
   });
 
   document.getElementById("btn-sync").addEventListener("click", function () {

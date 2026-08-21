@@ -107,17 +107,29 @@ class Api:
         buffer = io.BytesIO()
         export.exportar(filas, buffer)
 
-        ruta = self._window.create_file_dialog(
-            FileDialog.SAVE,
-            save_filename="subastas-filtradas.xlsx",
-            file_types=("Archivos Excel (*.xlsx)",),
-        )
-        if not ruta:
-            return {"ok": False}
-        destino = ruta[0] if isinstance(ruta, (list, tuple)) else ruta
-        with open(destino, "wb") as f:
-            f.write(buffer.getvalue())
-        return {"ok": True, "ruta": destino, "lotes": len(filas)}
+        try:
+            ruta = self._window.create_file_dialog(
+                FileDialog.SAVE,
+                save_filename="subastas-filtradas.xlsx",
+                file_types=("Archivos Excel (*.xlsx)",),
+            )
+            if not ruta:
+                # Cancelado por el usuario en el dialogo, no es un error.
+                return {"ok": False, "cancelado": True}
+            destino = ruta[0] if isinstance(ruta, (list, tuple)) else ruta
+            with open(destino, "wb") as f:
+                f.write(buffer.getvalue())
+            return {"ok": True, "ruta": destino, "lotes": len(filas)}
+        except Exception as e:
+            # Sin este try/except, cualquier fallo al escribir el archivo
+            # (permisos, carpeta sincronizada con OneDrive bloqueada, ruta
+            # invalida) tiraba una excepcion sin capturar del lado de
+            # Python - el puente de pywebview no la reenviaba de forma
+            # clara al JS, asi que el usuario se quedaba con el mensaje
+            # "Elegí dónde guardar el archivo..." para siempre, sin
+            # confirmacion ni error, como si nada hubiera pasado.
+            log.exception("Error exportando a Excel")
+            return {"ok": False, "error": str(e)}
 
 
 def main():
