@@ -152,6 +152,19 @@ def main():
         js_api=api,
     )
     api._window = window
+
+    # maximized=True en create_window() no alcanza en Windows: el backend
+    # aplica el width/height explicito DESPUES de poner el estado
+    # maximizado, asi que termina pisandolo (confirmado en vivo). Enganchar
+    # maximize() al evento "shown" evita ese pisado porque se llama recien
+    # cuando la ventana nativa ya existe. Esto se habia probado antes y se
+    # revirtio por miedo a repetir el bug de congelamiento de esa sesion -
+    # pero esa causa real resulto ser otra (ver Api, self._window vs
+    # self.window) y quedo confirmado que Window.maximize() ya hace
+    # self.Invoke(...) del lado de pywebview (winforms.py), asi que llamarlo
+    # desde el hilo en segundo plano que dispara este evento es seguro.
+    window.events.shown += window.maximize
+
     webview.start()
 
 
