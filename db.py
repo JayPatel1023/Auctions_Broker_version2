@@ -6,11 +6,29 @@ Columnas de `lotes` calcadas del Excel real del cliente
 para que el export a Excel reproduzca exactamente su formato de siempre.
 """
 
+import os
 import re
 import sqlite3
+import sys
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "auctions_broker.db"
+# Con --onefile de PyInstaller, __file__ de un modulo empaquetado apunta
+# adentro de la carpeta temporal donde el .exe se auto-extrae en CADA
+# arranque (sys._MEIPASS, distinta cada vez) - no a la carpeta del .exe.
+# Path(__file__).parent / "auctions_broker.db" hacia que la base de datos
+# se creara ahi adentro, y esa carpeta temporal se borra sola cuando la
+# app se cierra: se perdia TODO (sync, historico, filtros guardados) cada
+# vez que se cerraba y volvia a abrir la app empaquetada, sin ningun error
+# visible (confirmado en vivo: 333 lotes -> 0 lotes tras cerrar y abrir de
+# nuevo el mismo .exe). Se usa la misma carpeta estable que ya usa main.py
+# para el log (~/AuctionsBroker) para que la base persista entre arranques.
+if getattr(sys, "frozen", False):
+    _DATA_DIR = Path(os.path.expanduser("~")) / "AuctionsBroker"
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    _DATA_DIR = Path(__file__).parent
+
+DB_PATH = _DATA_DIR / "auctions_broker.db"
 
 
 def _fecha_iso(texto):
