@@ -98,7 +98,7 @@ input[type=text]{cursor:text;min-width:170px;}
 
 .date-filters{margin-top:2px;}
 .date-group{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-muted);font-weight:600;}
-.date-group input[type=date]{font-family:inherit;font-size:12.5px;border:1px solid var(--grid);border-radius:7px;background:var(--field-bg);color:var(--ink);padding:6px 8px;}
+.date-group input[type=text]{font-family:inherit;font-size:12.5px;border:1px solid var(--grid);border-radius:7px;background:var(--field-bg);color:var(--ink);padding:6px 8px;width:90px;min-width:0;font-variant-numeric:tabular-nums;}
 .date-group span{color:var(--ink-muted);}
 
 .count-note{font-size:12px;color:var(--ink-muted);margin:12px 0;font-weight:500;}

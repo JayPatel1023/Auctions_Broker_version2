@@ -103,6 +103,32 @@
   var fFechaInicioHasta = document.getElementById("f-fecha-inicio-hasta");
   var fFechaFinDesde = document.getElementById("f-fecha-fin-desde");
   var fFechaFinHasta = document.getElementById("f-fecha-fin-hasta");
+
+  // Los <input type=date> mostraban el formato segun el idioma de Windows
+  // en vez del de la pagina (lang="es" no alcanza, confirmado en vivo por
+  // el cliente: interpretaba mes/dia al reves sin darse cuenta). Con un
+  // input de texto simple, el formato dd/mm/aaaa queda fijo sin importar
+  // la configuracion regional de la maquina. Auto-inserta las barras para
+  // que sea comodo de tipear igual (basta con escribir los numeros).
+  function autoFormatearFecha(input) {
+    input.addEventListener("input", function () {
+      var digitos = input.value.replace(/\D/g, "").slice(0, 8);
+      var partes = [];
+      if (digitos.length > 0) partes.push(digitos.slice(0, 2));
+      if (digitos.length > 2) partes.push(digitos.slice(2, 4));
+      if (digitos.length > 4) partes.push(digitos.slice(4, 8));
+      input.value = partes.join("/");
+    });
+  }
+
+  // "dd/mm/aaaa" (lo que tipea el usuario) -> "aaaa-mm-dd" (lo que espera
+  // el backend); vacio o incompleto -> "" (sin filtro).
+  function fechaAIso(texto) {
+    var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((texto || "").trim());
+    return m ? (m[3] + "-" + m[2] + "-" + m[1]) : "";
+  }
+
+  [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(autoFormatearFecha);
   var mFuente = crearMultiSelect(document.getElementById("msel-fuente"), "Fuente");
   var mEstado = crearMultiSelect(document.getElementById("msel-estado"), "Estado");
   var mTipoSub = crearMultiSelect(document.getElementById("msel-tiposub"), "Tipo de subasta");
@@ -176,10 +202,10 @@
       tipo_bien: mTipoBien.getValues(),
       provincia: mProv.getValues(),
       texto: fText.value.trim(),
-      fecha_inicio_desde: fFechaInicioDesde.value,
-      fecha_inicio_hasta: fFechaInicioHasta.value,
-      fecha_conclusion_desde: fFechaFinDesde.value,
-      fecha_conclusion_hasta: fFechaFinHasta.value,
+      fecha_inicio_desde: fechaAIso(fFechaInicioDesde.value),
+      fecha_inicio_hasta: fechaAIso(fFechaInicioHasta.value),
+      fecha_conclusion_desde: fechaAIso(fFechaFinDesde.value),
+      fecha_conclusion_hasta: fechaAIso(fFechaFinHasta.value),
     };
   }
 
