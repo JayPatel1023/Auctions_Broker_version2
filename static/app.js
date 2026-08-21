@@ -373,8 +373,21 @@
       ? "Sincronizando " + provinciasElegidas.join(", ") + "..."
       : "Sincronizando con BOE Subastas y Seguridad Social...";
     fetch("/api/sync?" + params.toString(), { method: "POST" })
-      .then(function (r) { return r.json(); })
-      .then(function () { pollearSync(); })
+      .then(function (r) {
+        if (r.status === 409) {
+          // Ya habia una sincronizacion en curso (por ej. arrancada sin
+          // filtros antes de tildar estos) - sin este chequeo, el boton
+          // se quedaba mostrando/sondeando esa sync vieja sin avisar que
+          // el pedido nuevo con filtros fue ignorado.
+          btn.disabled = false;
+          label.textContent = "Actualizar (traer subastas de hoy)";
+          track.classList.remove("active");
+          statusText.textContent = "Ya había una sincronización en curso (sin estos filtros) - esperá a que termine y probá de nuevo.";
+          return null;
+        }
+        return r.json();
+      })
+      .then(function (data) { if (data) pollearSync(); })
       .catch(function () {
         btn.disabled = false;
         label.textContent = "Actualizar (traer subastas de hoy)";
