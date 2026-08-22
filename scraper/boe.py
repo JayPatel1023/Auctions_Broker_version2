@@ -207,7 +207,22 @@ class BOEScraper:
                 if t.startswith("Expediente:"):
                     expediente = t.replace("Expediente:", "").strip()
                 elif t.startswith("Estado:"):
-                    estado_txt = t.replace("Estado:", "").split("-")[0].strip() or estado_txt
+                    # Para PC/FS, BOE muestra en este parrafo un sub-estado
+                    # mas especifico por cada subasta (confirmado en vivo:
+                    # "Pendiente de finalizacion y devolucion de depositos
+                    # con reserva" para TODOS los resultados de PC, "Finalizada
+                    # y depositos con reserva devueltos" para TODOS los de FS -
+                    # nunca literalmente "Concluida en Portal de Subastas" ni
+                    # "Finalizada por Autoridad Gestora"). Dejar que esto pise
+                    # estado_txt hacia que ninguna fila quedara guardada con
+                    # esos dos textos exactos, asi que el filtro Estado para
+                    # esas dos categorias nunca traia resultados aunque los
+                    # datos si estuvieran ahi. Para PC/FS se mantiene fijo el
+                    # nombre de categoria (coincide con las opciones reales
+                    # del filtro); para el resto de estados se sigue usando
+                    # el texto real de la pagina, que ahi si coincide.
+                    if estado_cod not in ESTADOS_HISTORICOS:
+                        estado_txt = t.replace("Estado:", "").split("-")[0].strip() or estado_txt
                     fm = re.search(r"Conclusi[oó]n prevista:\s*([0-9/]+\s+a\s+las\s+[0-9:]+)", t)
                     if fm:
                         fecha_fin_resumen = fm.group(1)
