@@ -114,7 +114,19 @@ def _lote_a_fila_db(lote: dict) -> dict:
         "categoria_subasta": _categoria_subasta(lote["id"]),
         "tipo_bien": lote.get("tipo_bien", ""),
         "lotes": _lotes_a_entero(lote.get("lotes")),
-        "provincia": lote.get("provincia") or lote.get("provincia_busqueda", ""),
+        # provincia_busqueda es la provincia canonica con la que se hizo la
+        # busqueda (coincide siempre con las opciones del filtro Provincia).
+        # lote["provincia"] es texto de la pagina de detalle del bien, que
+        # para provincias con nombre oficial doble BOE a veces muestra solo
+        # la forma corta - confirmado en vivo: una subasta de Araba/Alava
+        # mostraba "Provincia: Alava" en su ficha, no "Araba/Alava". Antes
+        # se priorizaba ese texto de la ficha, asi que esa fila quedaba
+        # guardada como "Alava" y el filtro (que busca "Araba/Alava" exacto)
+        # nunca la encontraba - pasaba lo mismo para Alicante/Alacant,
+        # Illes Balears, Castellon/Castello, Gipuzkoa, Bizkaia. Como ya se
+        # sabe la provincia correcta desde la busqueda misma, no hace falta
+        # arriesgarse con el texto de la ficha - se usa siempre esa primero.
+        "provincia": lote.get("provincia_busqueda") or lote.get("provincia", ""),
         "localidad": lote.get("localidad", ""),
         "direccion": lote.get("direccion", ""),
         "descripcion": lote.get("descripcion") or lote.get("descripcion_resumen", ""),
