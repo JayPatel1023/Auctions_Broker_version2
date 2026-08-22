@@ -452,7 +452,31 @@
     // si el barrido historico ya estaba corriendo (p.ej. quedo prendido
     // de una sesion anterior de la app), retomar el poll en vez de
     // mostrar el boton como si no hubiera nada pasando
-    if (e.historico_en_progreso) pollearHistorico();
+    if (e.historico_en_progreso) {
+      pollearHistorico();
+    } else {
+      // El texto "Todavia no se corrio." de index.html es solo el
+      // placeholder inicial del HTML - antes se quedaba ahi para siempre
+      // en cada apertura de la app salvo que tocaras el boton en esa
+      // misma sesion, aunque el historico ya tuviera avance real de
+      // sesiones anteriores (guardado en sync_state, que ahora si
+      // persiste gracias al fix de la base de datos). Un usuario podia
+      // ver "Todavia no se corrio" y pensar que no habia arrancado nunca,
+      // cuando en realidad ya tenia miles de lotes historicos guardados.
+      // last_full_sync recien se escribe al terminar el barrido ENTERO
+      // (puede tardar dias), por eso se chequea primero si ya hay avance
+      // parcial guardado (historico_*_con_avance) antes que eso.
+      var ultimaHist = [e.historico_boe_ultima_pasada, e.historico_seg_social_ultima_pasada]
+        .filter(Boolean).sort().pop();
+      var conAvance = e.historico_boe_con_avance || e.historico_seg_social_con_avance;
+      if (ultimaHist) {
+        document.getElementById("historico-status").textContent =
+          "Última pasada completa: " + ultimaHist.replace("T", " ") + " (seguí corriéndolo para traer más)";
+      } else if (conAvance) {
+        document.getElementById("historico-status").textContent =
+          "Ya tiene avance guardado de antes (todavía no una pasada completa) - tocá el botón para seguir";
+      }
+    }
     if (e.sincronizando) pollearSync();
   });
 })();

@@ -176,6 +176,13 @@ def api_estado():
         "historico_mensaje": historico_status["mensaje"],
         "historico_boe_ultima_pasada": boe_hist["last_full_sync"] if boe_hist else None,
         "historico_seg_social_ultima_pasada": ss_hist["last_full_sync"] if ss_hist else None,
+        # last_combo queda guardado apenas se termina la PRIMERA combinacion
+        # provincia+estado, mucho antes que last_full_sync (que recien se
+        # escribe al completar el barrido entero, algo que puede tardar
+        # dias). Sin esto el frontend no tenia forma de saber que ya habia
+        # avance real guardado de una sesion anterior.
+        "historico_boe_con_avance": bool(boe_hist and boe_hist["last_combo"]),
+        "historico_seg_social_con_avance": bool(ss_hist and ss_hist["last_combo"]),
     })
 
 
