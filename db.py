@@ -226,8 +226,8 @@ def limpiar_lotes_huerfanos(id_subasta, ids_validos):
     conn.close()
 
 
-def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
-                 fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None):
+def _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, provincia, texto,
+                     fecha_inicio_desde, fecha_inicio_hasta, fecha_conclusion_desde, fecha_conclusion_hasta):
     """fuente/estado/tipo_subasta/categoria_subasta/tipo_bien/provincia:
     None o una lista de valores a combinar con OR (IN), para poder tildar
     varias opciones a la vez por filtro -como en el buscador real de BOE
@@ -243,16 +243,17 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
     fecha_*_desde/hasta: strings 'YYYY-MM-DD' (lo que devuelve un <input
     type=date>), se comparan contra fecha_inicio_iso/fecha_conclusion_iso
     -las mismas 2 fechas que tiene el formulario real de BOE (Fecha inicio
-    Subasta / Fecha fin Subasta)."""
-    conn = get_conn()
-    c = conn.cursor()
-    sql = "SELECT * FROM lotes WHERE 1=1"
+    Subasta / Fecha fin Subasta).
+
+    Devuelve (where_sql, params) compartido por query_lotes y count_lotes,
+    para no duplicar la logica de filtros entre traer las filas y contarlas."""
+    where = "WHERE 1=1"
     params = []
 
     def in_clause(columna, valores):
-        nonlocal sql
+        nonlocal where
         if valores:
-            sql += f" AND {columna} IN ({','.join('?' for _ in valores)})"
+            where += f" AND {columna} IN ({','.join('?' for _ in valores)})"
             params.extend(valores)
 
     in_clause("fuente", fuente)
@@ -262,31 +263,102 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
     in_clause("tipo_bien", tipo_bien)
     in_clause("provincia", provincia)
     if texto:
-        sql += " AND (descripcion LIKE ? OR id LIKE ?)"
+        where += " AND (descripcion LIKE ? OR id LIKE ?)"
         like = f"%{texto}%"
         params += [like, like]
 
     def rango_fecha(columna_iso, desde, hasta):
-        nonlocal sql
+        nonlocal where
         if desde:
-            sql += f" AND {columna_iso} >= ?"
+            where += f" AND {columna_iso} >= ?"
             params.append(desde)
         if hasta:
-            sql += f" AND {columna_iso} <= ?"
+            where += f" AND {columna_iso} <= ?"
             params.append(hasta)
 
     rango_fecha("fecha_inicio_iso", fecha_inicio_desde, fecha_inicio_hasta)
     rango_fecha("fecha_conclusion_iso", fecha_conclusion_desde, fecha_conclusion_hasta)
+    return where, params
 
+
+def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
+                 fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None,
+                 limite=None):
+    """Ver _clausula_where para el significado de los filtros.
+
+    limite: None (default) trae TODAS las filas que matcheen - lo que
+    necesitan el export a Excel y el conteo interno, que tienen que ver
+    el conjunto completo. Pasarlo explicito desde /api/lotes (el buscador
+    de la pantalla) para no mandarle al navegador miles de filas de una:
+    con el historico completo pasando los 10 mil lotes, sin limite el
+    frontend terminaba re-renderizando la tabla entera en cada tick del
+    poll (cada 2-3 segundos mientras corre una sync) hasta quedarse sin
+    memoria - confirmado en vivo por el cliente (WebView2 tiraba
+    "Codigo de error: Out of Memory")."""
+    where, params = _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, provincia, texto,
+                                     fecha_inicio_desde, fecha_inicio_hasta, fecha_conclusion_desde, fecha_conclusion_hasta)
+    conn = get_conn()
+    c = conn.cursor()
     # NULLS LAST explicito: sin esto, SQLite pone los NULL primero en ASC
     # -una fila con fecha sin parsear (fallo de red al traer el detalle, o
     # una fecha en un formato no reconocido) apareceria arriba de todo antes
     # que las fechas reales, en vez de al final donde tiene sentido.
-    sql += " ORDER BY fecha_conclusion_iso IS NULL, fecha_conclusion_iso"
+    sql = f"SELECT * FROM lotes {where} ORDER BY fecha_conclusion_iso IS NULL, fecha_conclusion_iso"
+    if limite:
+        sql += " LIMIT ?"
+        params = params + [limite]
     c.execute(sql, params)
     rows = [dict(r) for r in c.fetchall()]
     conn.close()
     return rows
+
+
+def count_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
+                 fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None):
+    """Total real de filas que matchean los filtros, sin traerlas todas a
+    Python solo para hacer len() - eso es lo que hacia antes /api/estado
+    (le pegaba a query_lotes() sin filtros ni limite en cada poll, osea
+    traia la tabla ENTERA a memoria cada 2-3 segundos nada mas para
+    contarla)."""
+    where, params = _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, provincia, texto,
+                                     fecha_inicio_desde, fecha_inicio_hasta, fecha_conclusion_desde, fecha_conclusion_hasta)
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(f"SELECT COUNT(*) FROM lotes {where}", params)
+    total = c.fetchone()[0]
+    conn.close()
+    return total
+
+
+def resumen_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
+                   fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None):
+    """Los numeros de las tarjetas KPI (total, proxima apertura,
+    celebrandose, tasacion promedio) sobre el conjunto COMPLETO que
+    matchea los filtros, no solo sobre las filas que se le mandan al
+    navegador para la tabla (query_lotes con limite). Antes esos numeros
+    se calculaban en el frontend a partir de rows.length/rows.filter(...)
+    sobre esas mismas filas limitadas - iba a quedar mostrando "500"
+    como total en vez de "10813" apenas se agregara el limite a la tabla."""
+    where, params = _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, provincia, texto,
+                                     fecha_inicio_desde, fecha_inicio_hasta, fecha_conclusion_desde, fecha_conclusion_hasta)
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        f"""SELECT COUNT(*),
+                   SUM(CASE WHEN estado = 'Próxima apertura' THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN estado = 'Celebrándose' THEN 1 ELSE 0 END),
+                   AVG(CASE WHEN valor_tasacion IS NOT NULL AND valor_tasacion != 0 THEN valor_tasacion END)
+            FROM lotes {where}""",
+        params,
+    )
+    total, proxima, celebrando, avg_tasacion = c.fetchone()
+    conn.close()
+    return {
+        "total": total or 0,
+        "proxima_apertura": proxima or 0,
+        "celebrandose": celebrando or 0,
+        "tasacion_promedio": avg_tasacion,
+    }
 
 
 def get_sync_state(fuente):

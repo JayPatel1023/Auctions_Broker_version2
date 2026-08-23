@@ -103,9 +103,21 @@ def index():
     return render_template("index.html")
 
 
+LIMITE_TABLA_PANTALLA = 500
+
+
 @app.route("/api/lotes")
 def api_lotes():
-    filas = db.query_lotes(
+    """Devuelve como mucho LIMITE_TABLA_PANTALLA filas para pintar en la
+    tabla - antes mandaba TODAS las filas que matchearan sin limite, y con
+    el historico completo pasando los 10 mil lotes eso hacia que el
+    navegador reconstruyera la tabla entera en cada tick del poll (cada
+    2-3 segundos mientras corre una sync) hasta quedarse sin memoria
+    (confirmado en vivo por el cliente: WebView2 tiro "Codigo de error:
+    Out of Memory"). El "resumen" (para las tarjetas KPI) se calcula
+    aparte sobre el conjunto COMPLETO, no solo sobre estas filas
+    limitadas - ver db.resumen_lotes()."""
+    filtros = dict(
         fuente=request.args.getlist("fuente") or None,
         estado=request.args.getlist("estado") or None,
         categoria_subasta=request.args.getlist("categoria_subasta") or None,
@@ -117,7 +129,9 @@ def api_lotes():
         fecha_conclusion_desde=request.args.get("fecha_conclusion_desde") or None,
         fecha_conclusion_hasta=request.args.get("fecha_conclusion_hasta") or None,
     )
-    return jsonify(filas)
+    filas = db.query_lotes(limite=LIMITE_TABLA_PANTALLA, **filtros)
+    resumen = db.resumen_lotes(**filtros)
+    return jsonify({"lotes": filas, "resumen": resumen, "limite": LIMITE_TABLA_PANTALLA})
 
 
 @app.route("/api/sync", methods=["POST"])
@@ -165,7 +179,7 @@ def api_estado():
     ss = db.get_sync_state("Seguridad Social")
     boe_hist = db.get_sync_state("BOE Subastas Historico")
     ss_hist = db.get_sync_state("Seguridad Social Historico")
-    total = len(db.query_lotes())
+    total = db.count_lotes()
     return jsonify({
         "total_lotes": total,
         "boe_ultima_sync": boe["last_full_sync"] if boe else None,

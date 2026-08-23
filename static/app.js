@@ -221,13 +221,17 @@
     return p;
   }
 
-  function renderKPIs(rows) {
-    document.getElementById("kpi-total").textContent = rows.length;
-    document.getElementById("kpi-proxima").textContent = rows.filter(function (r) { return r.estado === "Próxima apertura"; }).length;
-    document.getElementById("kpi-celebrando").textContent = rows.filter(function (r) { return r.estado === "Celebrándose"; }).length;
-    var conTasacion = rows.filter(function (r) { return r.valor_tasacion; });
-    var avg = conTasacion.length ? conTasacion.reduce(function (s, r) { return s + r.valor_tasacion; }, 0) / conTasacion.length : null;
-    document.getElementById("kpi-avg").textContent = avg ? fmt(avg) : "-";
+  function renderKPIs(resumen) {
+    // Se calculan en el servidor sobre TODAS las filas que matchean los
+    // filtros (ver db.resumen_lotes), no solo sobre las que llegan para
+    // pintar la tabla (esas si vienen limitadas - ver LIMITE_TABLA_PANTALLA
+    // en app.py). Si esto tomara rows.length en vez del resumen, las
+    // tarjetas KPI mostrarian como mucho el limite (ej. "500") en vez del
+    // total real (ej. "10813") apenas hubiera mas filas que el limite.
+    document.getElementById("kpi-total").textContent = resumen.total;
+    document.getElementById("kpi-proxima").textContent = resumen.proxima_apertura;
+    document.getElementById("kpi-celebrando").textContent = resumen.celebrandose;
+    document.getElementById("kpi-avg").textContent = resumen.tasacion_promedio ? fmt(resumen.tasacion_promedio) : "-";
   }
 
   function pct(parte, total) {
@@ -280,11 +284,21 @@
         if (!r.ok) throw new Error("El servidor respondió " + r.status);
         return r.json();
       })
-      .then(function (rows) {
-        document.getElementById("table-count").textContent = rows.length
-          ? "Mostrando " + rows.length + " lotes"
-          : 'Sin resultados. Si todavía no sincronizaste, tocá "Actualizar".';
-        renderKPIs(rows);
+      .then(function (data) {
+        var rows = data.lotes;
+        var total = data.resumen.total;
+        var msg;
+        if (!total) {
+          msg = 'Sin resultados. Si todavía no sincronizaste, tocá "Actualizar".';
+        } else if (total > data.limite) {
+          // No es un silencio - si se recortan filas hay que decirlo, si
+          // no parece que el filtro trajo menos de lo que en realidad hay.
+          msg = "Mostrando " + rows.length + " de " + total + " lotes (afiná los filtros para ver una lista más chica)";
+        } else {
+          msg = "Mostrando " + total + " lotes";
+        }
+        document.getElementById("table-count").textContent = msg;
+        renderKPIs(data.resumen);
         renderTable(rows);
       })
       .catch(function (err) {
