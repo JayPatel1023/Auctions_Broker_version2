@@ -318,7 +318,7 @@
     btn.disabled = true;
     label.textContent = "Actualizando... (puede tardar varios minutos)";
     track.classList.add("active");
-    pollTimer = setInterval(function () {
+    function tick() {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.mensaje_sync || "Sincronizando...";
         // refrescar tabla/KPIs en cada tick, no solo al terminar, para que
@@ -331,7 +331,15 @@
           track.classList.remove("active");
         }
       });
-    }, 2000);
+    }
+    // setInterval espera el intervalo entero antes del primer tick - sin
+    // este llamado inmediato, el boton/barra ya se mostraban "activos" pero
+    // el texto de estado se quedaba con el mensaje viejo (o el placeholder
+    // estatico del HTML) hasta 2 segundos despues, sobre todo notorio al
+    // retomar un sync que ya estaba corriendo de antes (confirmado en vivo
+    // por el cliente con una captura de pantalla).
+    tick();
+    pollTimer = setInterval(tick, 2000);
   }
 
   var pollTimerHistorico = null;
@@ -344,7 +352,7 @@
     btn.disabled = true;
     label.textContent = "Descargando histórico...";
     track.classList.add("active");
-    pollTimerHistorico = setInterval(function () {
+    function tick() {
       actualizarEstadoConexion().then(function (e) {
         statusText.textContent = e.historico_mensaje || "Descargando histórico...";
         cargar();
@@ -355,7 +363,12 @@
           track.classList.remove("active");
         }
       });
-    }, 3000);
+    }
+    // mismo fix que pollearSync: sin el llamado inmediato, el boton ya
+    // decia "Descargando historico..." pero el texto de estado se quedaba
+    // en el placeholder viejo hasta el primer tick, 3 segundos despues.
+    tick();
+    pollTimerHistorico = setInterval(tick, 3000);
   }
 
   mFuente.onChange(function () { actualizarFiltrosSegunFuente(); cargar(); });
