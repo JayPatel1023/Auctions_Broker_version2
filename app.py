@@ -81,21 +81,45 @@ def _sync_en_segundo_plano(provincias=None, fuentes=None):
         sync_status["en_progreso"] = False
 
 
-def _historico_en_segundo_plano():
+def _historico_en_segundo_plano(fuentes=None):
+    """fuentes: subconjunto de {"BOE Subastas", "Seguridad Social"}, o
+    None/vacio para las dos - mismo criterio que _sync_en_segundo_plano.
+    Antes este botón siempre bajaba las dos fuentes sin importar que
+    filtro de Fuente tuviera tildado el usuario en pantalla (ese filtro
+    solo afecta que se muestra en la tabla, no que se descarga) -
+    confirmado con el cliente, que tenia solo BOE Subastas tildado en el
+    filtro y de todos modos le salio un error de Seguridad Social.
+
+    Cada fuente corre en su propio try/except: antes, si Seguridad Social
+    fallaba (ej. un corte de red momentaneo resolviendo su dominio), la
+    excepcion cortaba TODO el barrido y el avance de BOE de esa misma
+    pasada se perdia sin guardar mensaje de progreso - confirmado en vivo
+    con el cliente (age fallo de DNS en w6.seg-social.es corto el barrido
+    completo). Ahora una fuente fallando no le impide a la otra terminar."""
     def progreso(msg):
         historico_status["mensaje"] = msg
 
-    try:
-        total_boe = sync_boe_historico(progreso=progreso)
-        total_ss = sync_seg_social_historico(progreso=progreso)
-        total = total_boe + total_ss
-        historico_status["lotes_procesados"] = total
+    total = 0
+    errores = []
+    if not fuentes or "BOE Subastas" in fuentes:
+        try:
+            total += sync_boe_historico(progreso=progreso)
+        except Exception as e:
+            log.exception("Error durante el barrido histórico de BOE")
+            errores.append(f"BOE: {e}")
+    if not fuentes or "Seguridad Social" in fuentes:
+        try:
+            total += sync_seg_social_historico(progreso=progreso)
+        except Exception as e:
+            log.exception("Error durante el barrido histórico de Seguridad Social")
+            errores.append(f"Seguridad Social: {e}")
+
+    historico_status["lotes_procesados"] = total
+    if errores:
+        historico_status["mensaje"] = f"Pasada con errores ({total} lotes nuevos) - " + " | ".join(errores)
+    else:
         historico_status["mensaje"] = f"Pasada completa - {total} lotes nuevos"
-    except Exception as e:
-        log.exception("Error durante el barrido histórico")
-        historico_status["mensaje"] = f"Error: {e}"
-    finally:
-        historico_status["en_progreso"] = False
+    historico_status["en_progreso"] = False
 
 
 @app.route("/")
@@ -162,14 +186,23 @@ def api_sync():
 def api_sync_historico():
     """Arranca (o retoma) el barrido histórico completo en un hilo aparte.
     Puede tardar horas: se puede cerrar la app y volver a tocar el botón
-    despues, retoma justo donde quedó (ver sync_state en db.py)."""
+    despues, retoma justo donde quedó (ver sync_state en db.py).
+
+    Igual que /api/sync, respeta el filtro de Fuente tildado en pantalla
+    (antes bajaba BOE y Seguridad Social siempre, sin importar el
+    filtro)."""
     with historico_lock:
         if historico_status["en_progreso"]:
             return jsonify({"status": "ya_en_progreso"}), 409
+        fuentes = request.args.getlist("fuente") or None
         historico_status["en_progreso"] = True
         historico_status["mensaje"] = "Arrancando barrido histórico..."
         historico_status["lotes_procesados"] = 0
-        threading.Thread(target=_historico_en_segundo_plano, daemon=True).start()
+        threading.Thread(
+            target=_historico_en_segundo_plano,
+            kwargs={"fuentes": fuentes},
+            daemon=True,
+        ).start()
     return jsonify({"status": "iniciado"})
 
 

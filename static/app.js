@@ -464,7 +464,14 @@
     var btn = document.getElementById("btn-historico");
     var label = btn.querySelector(".btn-label");
     label.textContent = "Descargando histórico...";
-    fetch("/api/sync_historico", { method: "POST" })
+    // Igual que "Actualizar": respeta el filtro de Fuente tildado en
+    // pantalla. Antes siempre bajaba BOE y Seguridad Social juntos sin
+    // importar el filtro - confirmado con el cliente, que tenia solo BOE
+    // Subastas tildado y de todos modos le corto todo el barrido un error
+    // de Seguridad Social.
+    var params = new URLSearchParams();
+    mFuente.getValues().forEach(function (f) { params.append("fuente", f); });
+    fetch("/api/sync_historico?" + params.toString(), { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function () { pollearHistorico(); })
       .catch(function () {
