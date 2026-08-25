@@ -87,6 +87,14 @@ input[type=text]{cursor:text;min-width:170px;}
 .btn.primary:hover{filter:brightness(1.06);transform:translateY(-1px);}
 .btn.primary:disabled{opacity:.75;cursor:default;transform:none;}
 .btn.ghost:hover{background:var(--ghost-hover);border-color:var(--field-hover);}
+/* Sin esto, "Descargar histórico completo" (btn.ghost) se veia IGUAL
+   habilitado o deshabilitado - si btn.disabled se quedaba pegado en true
+   por algun motivo (el poll que lo resetea deja de correr, etc.), el
+   boton se veia clickeable normal pero no respondia a ningun click, sin
+   ninguna pista visual de por que. Confirmado por el cliente y en una
+   prueba propia: "lo toco pero no pasa nada". */
+.btn.ghost:disabled{opacity:.5;cursor:not-allowed;}
+.btn.ghost:disabled:hover{background:var(--field-bg);border-color:var(--grid);}
 .filters-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;align-items:center;}
 
 .msel{position:relative;}
