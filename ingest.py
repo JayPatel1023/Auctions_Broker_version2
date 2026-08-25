@@ -167,7 +167,16 @@ def _lote_seg_social_a_fila_db(lote: dict) -> dict:
         "provincia": _provincia_canonica(lote.get("provincia") or lote.get("provincia_busqueda", "")),
         "localidad": lote.get("localidad", ""),
         "direccion": lote.get("direccion", ""),
-        "descripcion": lote.get("descripcion", ""),
+        # descripcion viene de detalle() (una consulta HTTP aparte, que
+        # puede fallar - confirmado en vivo: en un archivo real del
+        # cliente, ~20% de los lotes de Seguridad Social tenian TODOS los
+        # campos de detalle vacios por un fallo de red en esa consulta
+        # puntual). nombre ya viene de la pagina de listado (la misma
+        # consulta que trae el lote en si, no falla por separado) y suele
+        # tener un texto igual de descriptivo (ej. "BICICLETA DECORATIVA
+        # CON PRODUCTOS PELUQUERIA") - usarlo de respaldo evita dejar la
+        # columna Descripcion vacia cuando ya hay un texto util a mano.
+        "descripcion": lote.get("descripcion") or lote.get("nombre", ""),
         "referencia_catastral": lote.get("referencia_catastral", ""),
         "marca": lote.get("marca", ""),
         "modelo": lote.get("modelo", ""),
