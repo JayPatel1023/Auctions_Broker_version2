@@ -125,7 +125,18 @@
   // el backend); vacio o incompleto -> "" (sin filtro).
   function fechaAIso(texto) {
     var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((texto || "").trim());
-    return m ? (m[3] + "-" + m[2] + "-" + m[1]) : "";
+    if (!m) return "";
+    var dia = parseInt(m[1], 10), mes = parseInt(m[2], 10), anio = parseInt(m[3], 10);
+    // El formato (2/2/4 digitos) no alcanza para saber si la fecha es
+    // real - "23/42/0303" tambien matchea ese patron. Sin este chequeo,
+    // una fecha invalida se mandaba igual al backend como texto ISO
+    // ("0303-42-23"), y como ese texto ordena alfabeticamente ANTES que
+    // cualquier año real (20XX), un filtro "desde" con eso terminaba
+    // sin filtrar nada en vez de fallar o ser ignorado - confirmado en
+    // vivo: seguian apareciendo resultados con una fecha sin sentido
+    // puesta en el filtro.
+    if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return "";
+    return anio + "-" + m[2] + "-" + m[1];
   }
 
   [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(autoFormatearFecha);
