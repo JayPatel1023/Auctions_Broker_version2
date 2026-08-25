@@ -333,7 +333,17 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
 
         db.set_sync_state("BOE Subastas Historico", last_combo=clave)
 
-    db.set_sync_state("BOE Subastas Historico", last_full_sync=datetime.now().isoformat(timespec="seconds"))
+    # El for termino la lista ENTERA sin cortarse (nadie hizo return/raise
+    # antes) - fue una pasada completa de verdad, no una interrumpida a
+    # mitad de camino. Reiniciar last_combo para que el proximo click
+    # arranque una pasada nueva desde el principio (y agarre subastas
+    # nuevas que hayan aparecido), en vez de creer que ya paso por todos
+    # los combos y saltearselos todos sin bajar nada.
+    db.set_sync_state(
+        "BOE Subastas Historico",
+        last_full_sync=datetime.now().isoformat(timespec="seconds"),
+        reiniciar_combo=True,
+    )
     return total
 
 
@@ -372,7 +382,14 @@ def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, 
 
         db.set_sync_state("Seguridad Social Historico", last_combo=prov_cod)
 
-    db.set_sync_state("Seguridad Social Historico", last_full_sync=datetime.now().isoformat(timespec="seconds"))
+    # Mismo motivo que en sync_boe_historico: pasada completa de verdad,
+    # reiniciar el combo para que la proxima vuelva a arrancar desde el
+    # principio en vez de saltearse todas las provincias de largo.
+    db.set_sync_state(
+        "Seguridad Social Historico",
+        last_full_sync=datetime.now().isoformat(timespec="seconds"),
+        reiniciar_combo=True,
+    )
     return total
 
 

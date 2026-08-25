@@ -370,18 +370,41 @@ def get_sync_state(fuente):
     return dict(row) if row else None
 
 
-def set_sync_state(fuente, last_full_sync=None, last_combo=None):
+def set_sync_state(fuente, last_full_sync=None, last_combo=None, reiniciar_combo=False):
+    """last_combo=None normalmente NO borra el valor guardado (el COALESCE
+    lo preserva a proposito, para que guardar solo last_full_sync al final
+    de una pasada no pise por accidente el ultimo combo mientras todavia
+    estaba a mitad de camino). reiniciar_combo=True es la unica forma de
+    poner last_combo en NULL de verdad - se usa cuando una pasada termina
+    COMPLETA: sin esto, el ultimo combo guardado quedaba apuntando al
+    ULTIMO de la lista para siempre, asi que la proxima vez que arrancaba
+    el barrido, el resumible se pasaba TODOS los combos de largo (creyendo
+    que ya estaban hechos) sin bajar nada nuevo - confirmado en vivo: el
+    boton mostraba "Descargando..." un instante y volvia solo a "Pasada
+    completa - 0 lotes nuevos", porque la funcion terminaba casi al
+    toque sin hacer ningun pedido real."""
     conn = get_conn()
     c = conn.cursor()
-    c.execute(
-        """
-        INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, ?)
-        ON CONFLICT(fuente) DO UPDATE SET
-            last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
-            last_combo = COALESCE(excluded.last_combo, sync_state.last_combo)
-        """,
-        (fuente, last_full_sync, last_combo),
-    )
+    if reiniciar_combo:
+        c.execute(
+            """
+            INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, NULL)
+            ON CONFLICT(fuente) DO UPDATE SET
+                last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
+                last_combo = NULL
+            """,
+            (fuente, last_full_sync),
+        )
+    else:
+        c.execute(
+            """
+            INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, ?)
+            ON CONFLICT(fuente) DO UPDATE SET
+                last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
+                last_combo = COALESCE(excluded.last_combo, sync_state.last_combo)
+            """,
+            (fuente, last_full_sync, last_combo),
+        )
     conn.commit()
     conn.close()
 
