@@ -299,54 +299,128 @@ def _buscar_boe_fragmentado(scraper, provincia_cod, estado_cod, desde, hasta, pr
     return izquierda + derecha
 
 
+VENTANA_DIAS_HISTORICO = 30
+# Tamaño fijo de cada tramo de fecha del barrido historico. Antes el
+# checkpoint resumible solo guardaba el ULTIMO COMBO provincia+estado
+# terminado, y _buscar_boe_fragmentado biseccionaba el rango entero
+# (2021..hoy) de una sola vez en memoria - si la app se cerraba a mitad de
+# un combo (algo normal en una app de escritorio) se perdia TODO su avance:
+# la proxima vez ese combo arrancaba de cero desde 2021 otra vez. Como la
+# biseccion recorre primero la mitad mas vieja del rango, un combo
+# interrumpido varias veces terminaba sincronizado solo en años viejos y
+# nunca llegaba a los recientes - confirmado en vivo por el cliente: 182
+# subastas concluidas en Malaga en 2026 en la web real de BOE, pero 0 en el
+# export (el historico de Malaga se habia quedado pisando 2021-2022 sin
+# avanzar mas alla). Partiendo el barrido en tramos fijos y guardando el
+# progreso tramo a tramo (no solo combo a combo) se puede retomar dentro de
+# un mismo combo en vez de perder ese avance.
+def _ventanas_historico(desde, hasta, dias=VENTANA_DIAS_HISTORICO):
+    """Tramos de tamaño fijo para cubrir desde..hasta. El limite de cada
+    tramo es SIEMPRE cursor + dias-1 (nunca se recorta contra `hasta`) para
+    que la clave de cada tramo no cambie de un dia a otro - `hasta` por
+    defecto es hoy (ver sync_boe_historico), que avanza cada dia; si el
+    ultimo tramo se recortara contra `hasta`, su limite cambiaria en cada
+    corrida y el checkpoint guardado dejaria de coincidir con ningun tramo
+    real, salteando ese combo para siempre sin retomarlo nunca. Pedir de
+    mas (fechas un poco en el futuro) no trae resultados de mas: PC/FS son
+    subastas YA concluidas, ninguna real va a tener fecha de conclusion
+    futura."""
+    d1, d2 = date.fromisoformat(desde), date.fromisoformat(hasta)
+    tramos = []
+    cursor = d1
+    while cursor <= d2:
+        fin = cursor + timedelta(days=dias - 1)
+        tramos.append((cursor.isoformat(), fin.isoformat()))
+        cursor = fin + timedelta(days=1)
+    return tramos
+
+
 def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_detalle=True, progreso=None, continuar=True):
     """Barrido historico completo de BOE (estados PC/FS = Concluida).
-    Resumible: guarda en sync_state el ultimo combo provincia+estado
-    terminado y la proxima vez arranca justo despues de ahi, en vez de
-    repetir todo desde cero."""
+    Resumible tramo a tramo: guarda en sync_state el ultimo combo
+    provincia+estado + tramo de fecha terminado, y la proxima vez arranca
+    justo despues de ahi - ni repite el combo entero desde 2021, ni se
+    saltea de largo un combo que quedo a mitad de camino."""
     db.init_db()
     hasta = hasta or date.today().isoformat()
     scraper = BOEScraper()
     provincias = provincias or list(PROVINCIAS.keys())
     combos = [(p, e) for e in ESTADOS_HISTORICOS for p in provincias]
+    ventanas = _ventanas_historico(desde, hasta)
 
-    ultimo = None
+    combo_completo = None
+    combo_parcial = None
+    ventana_completa = None
     if continuar:
         prev = db.get_sync_state("BOE Subastas Historico")
-        ultimo = prev["last_combo"] if prev else None
-    saltando = ultimo is not None
+        anterior = prev["last_combo"] if prev else None
+        if anterior:
+            partes = anterior.split(":")
+            if len(partes) == 3:
+                combo_parcial = f"{partes[0]}:{partes[1]}"
+                ventana_completa = partes[2]
+                # Si desde/VENTANA_DIAS_HISTORICO cambiaran entre corridas,
+                # el tramo guardado podria no coincidir con ninguno de los
+                # tramos actuales - sin este chequeo, el combo entero se
+                # salteaba en silencio (saltando_ventana quedaba en True
+                # toda la vuelta) y terminaba marcado como completo sin
+                # haber bajado nada. Si el tramo guardado ya no existe, se
+                # descarta el resumen parcial y ese combo se procesa entero
+                # de nuevo en vez de perderlo silenciosamente.
+                if ventana_completa not in (v[1] for v in ventanas):
+                    combo_parcial = None
+                    ventana_completa = None
+            else:
+                combo_completo = anterior
+    saltando_combo = combo_completo is not None or combo_parcial is not None
 
     total = 0
     for prov_cod, estado_cod in combos:
         clave = f"{prov_cod}:{estado_cod}"
-        if saltando:
-            if clave == ultimo:
-                saltando = False
-            continue
+        if saltando_combo:
+            if clave in (combo_completo, combo_parcial):
+                saltando_combo = False
+                if clave == combo_completo:
+                    continue
+                # combo_parcial: sigue de largo, se retoma a mitad de camino abajo
+            else:
+                continue
 
-        lotes = _buscar_boe_fragmentado(scraper, prov_cod, estado_cod, desde, hasta)
-        if lotes:
-            msg = f"Histórico BOE - {PROVINCIAS[prov_cod]} / {ESTADOS[estado_cod]}: {len(lotes)} lotes"
-            log.info(msg)
-            if progreso:
-                progreso(msg)
-            for lote in lotes:
-                if con_detalle:
-                    filas_lote = scraper.detalle_lotes(lote["id"])
-                    ids_nuevos = []
-                    for fila_lote in filas_lote:
-                        combinado = dict(lote)
-                        combinado.update(fila_lote)
-                        fila_db = _lote_a_fila_db(combinado)
-                        db.upsert_lote(fila_db)
-                        ids_nuevos.append(fila_db["id"])
+        saltando_ventana = clave == combo_parcial
+        for v_desde, v_hasta in ventanas:
+            if saltando_ventana:
+                if v_hasta == ventana_completa:
+                    saltando_ventana = False
+                continue
+
+            lotes = _buscar_boe_fragmentado(scraper, prov_cod, estado_cod, v_desde, v_hasta)
+            if lotes:
+                msg = f"Histórico BOE - {PROVINCIAS[prov_cod]} / {ESTADOS[estado_cod]} ({v_desde}..{v_hasta}): {len(lotes)} lotes"
+                log.info(msg)
+                if progreso:
+                    progreso(msg)
+                for lote in lotes:
+                    if con_detalle:
+                        filas_lote = scraper.detalle_lotes(lote["id"])
+                        ids_nuevos = []
+                        for fila_lote in filas_lote:
+                            combinado = dict(lote)
+                            combinado.update(fila_lote)
+                            fila_db = _lote_a_fila_db(combinado)
+                            db.upsert_lote(fila_db)
+                            ids_nuevos.append(fila_db["id"])
+                            total += 1
+                        if ids_nuevos:
+                            db.limpiar_lotes_huerfanos(lote["id"], ids_nuevos)
+                    else:
+                        db.upsert_lote(_lote_a_fila_db(lote))
                         total += 1
-                    if ids_nuevos:
-                        db.limpiar_lotes_huerfanos(lote["id"], ids_nuevos)
-                else:
-                    db.upsert_lote(_lote_a_fila_db(lote))
-                    total += 1
 
+            db.set_sync_state("BOE Subastas Historico", last_combo=f"{clave}:{v_hasta}")
+
+        # combo entero terminado (todos sus tramos) - se guarda SIN sufijo
+        # de tramo para que la proxima vez se saltee entero de una y
+        # arranque el siguiente combo desde su primer tramo, no a mitad.
         db.set_sync_state("BOE Subastas Historico", last_combo=clave)
 
     # El for termino la lista ENTERA sin cortarse (nadie hizo return/raise
