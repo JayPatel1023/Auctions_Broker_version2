@@ -140,7 +140,14 @@ def _lote_a_fila_db(lote: dict) -> dict:
         "tramos_entre_pujas": lote.get("tramos_entre_pujas"),
         "puja_minima": lote.get("puja_minima"),
         "importe_deposito": lote.get("importe_deposito"),
-        "nombre": lote.get("nombre", ""),
+        # Pedido explicito del cliente: la columna Nombre debe traer el
+        # Acreedor (quien reclama la deuda), no el juzgado/organismo que
+        # tramita el caso (que es lo que traia antes, via lote["nombre"] -
+        # el titulo <h4> de la pagina de listado de BOE). El acreedor no
+        # esta en todas las subastas (confirmado por el cliente y en vivo
+        # contra BOE) - cuando no esta, se deja vacio a proposito, sin caer
+        # de nuevo al nombre del juzgado.
+        "nombre": lote.get("acreedor", ""),
         "fecha_inicio": lote.get("fecha_inicio", ""),
         "fecha_conclusion": lote.get("fecha_conclusion") or lote.get("fecha_fin_resumen", ""),
     }

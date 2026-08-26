@@ -282,6 +282,15 @@ class BOEScraper:
             log.warning(f"Sin datos financieros para {id_sub}, se salta esta vuelta (se reintenta en la proxima sync)")
             return []
 
+        # El acreedor es de la subasta entera (no cambia por lote), asi que
+        # se pide una vez sola aca en vez de repetirlo en cada vuelta del
+        # for de abajo - evita pedidos de mas en subastas multi-lote. Va
+        # DESPUES del chequeo de arriba: si _detalle_financiero ya fallo,
+        # comunes es {} y hay que devolver [] tal cual, sin agregarle nada
+        # que lo haga parecer no-vacio.
+        comunes["acreedor"] = self._detalle_acreedor(id_sub)
+        self._wait()
+
         valor_lotes = str(comunes.get("lotes", "")).lower()
         n = 1
         m = re.search(r"\d+", valor_lotes)
@@ -351,6 +360,32 @@ class BOEScraper:
             "importe_deposito": _money_to_float(campos.get("Importe del depósito")),
             "lotes": campos.get("Lotes", ""),
         }
+
+    def _detalle_acreedor(self, id_sub: str):
+        """El acreedor (quien reclama la deuda) esta en una pagina APARTE
+        de la ficha (ver=4), con su propio bloque "Acreedor" - no aparece
+        en ver=3 (bien) ni en la pagina sin ver (financiero). Confirmado
+        en vivo contra subastas.boe.es: no todas las subastas lo tienen
+        (BOE lo deja vacio en muchas), y cuando esta, el campo que importa
+        para el cliente es el Nombre.
+
+        Es un dato de la SUBASTA entera, no de cada lote (a diferencia de
+        _detalle_bien), asi que se pide una sola vez por subasta - no hace
+        falta repetirlo por cada idLote."""
+        try:
+            resp = self.session.get(DETALLE_URL, params={"idSub": id_sub, "ver": 4}, timeout=30)
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            log.warning(f"No se pudo obtener el acreedor de {id_sub}: {e}")
+            return ""
+        soup = BeautifulSoup(resp.text, "html.parser")
+        bloque = soup.find("h3", string=re.compile(r"^Acreedor"))
+        if not bloque:
+            return ""
+        tabla = bloque.find_next("table")
+        if not tabla:
+            return ""
+        return self._tabla_a_dict(tabla).get("Nombre", "")
 
     def _detalle_bien(self, id_sub: str, id_lote=None):
         params = {"idSub": id_sub, "ver": 3}
