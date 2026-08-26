@@ -106,7 +106,21 @@ COLUMNS = [
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    # timeout=15 (default es 5) + WAL: confirmado en vivo por el cliente,
+    # "Error: database is locked" - paso con el histórico/actualizar
+    # escribiendo de fondo mientras el export a Excel (que hace su propia
+    # lectura aparte) se disparo muchas veces seguidas (broto clickeando
+    # el boton, ya que el dialogo nativo de guardar quedaba tapado detras
+    # de la ventana sin que se notara que ya habia aparecido). Con el modo
+    # de journal por default (rollback journal), un escritor bloquea a
+    # TODOS los lectores hasta que termina - con WAL, los lectores pueden
+    # seguir leyendo la version anterior mientras un escritor esta activo,
+    # sin bloquearse entre si. WAL se activa una vez por archivo (queda
+    # asi permanentemente), por eso conviene pedirlo en cada conexion en
+    # vez de solo al crear la base - no cuesta nada pedirlo de nuevo si
+    # ya esta activo.
+    conn = sqlite3.connect(DB_PATH, timeout=15)
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.row_factory = sqlite3.Row
     return conn
 

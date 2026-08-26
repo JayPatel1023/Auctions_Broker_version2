@@ -411,7 +411,18 @@
   });
 
   document.getElementById("export-xls").addEventListener("click", function () {
+    var btn = document.getElementById("export-xls");
     var statusText = document.getElementById("status-text");
+    // El dialogo nativo "Guardar como" es una ventana de Windows aparte,
+    // no algo dibujado en esta pagina - si queda tapada detras de la
+    // ventana principal, no hay ninguna pista visual de que ya aparecio.
+    // Sin deshabilitar el boton, eso llevaba a clickear 10-20 veces
+    // seguidas pensando que "no pasaba nada", disparando esa cantidad de
+    // export_excel() en simultaneo - confirmado en vivo que eso termino
+    // en "Error: database is locked" por la carga de lecturas encima del
+    // histórico escribiendo de fondo.
+    if (btn.disabled) return;
+    btn.disabled = true;
     var filtros = filtrosActuales();
     statusText.textContent = "Elegí dónde guardar el archivo...";
     window.pywebview.api.export_excel(filtros)
@@ -429,6 +440,9 @@
       })
       .catch(function (err) {
         statusText.textContent = "No se pudo exportar: " + err;
+      })
+      .finally(function () {
+        btn.disabled = false;
       });
   });
 
