@@ -20,6 +20,8 @@ from ingest import (
     PRINCIPALES_PROVINCIAS, LIMITE_POR_COMBO_DEFECTO,
 )
 from scraper.boe import ESTADOS_ACTIVOS as ESTADO_ACTIVOS_COD, PROVINCIAS as PROVINCIAS_BOE
+from scraper.seg_social import SegSocialScraper, BASE as SS_BASE
+import requests
 
 COD_POR_NOMBRE_PROVINCIA = {nombre: cod for cod, nombre in PROVINCIAS_BOE.items()}
 
@@ -125,6 +127,49 @@ def _historico_en_segundo_plano(fuentes=None):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/ss/detalle/<emb_id>")
+def ss_detalle(emb_id):
+    """Proxy al detalle real de un lote de Seguridad Social.
+
+    El sitio exige haber pasado por una busqueda de verdad en la MISMA
+    sesion antes de mostrar el detalle puntual de un lote - ni siquiera
+    alcanza con visitar la pagina de busqueda sin buscar nada (confirmado
+    en vivo). Por eso el Id de esta fuente no podia enlazar directo desde
+    el navegador del usuario (una sesion nueva sin ese paso previo). Este
+    endpoint hace esa busqueda de "calentamiento" del lado del servidor
+    -donde si podemos armar la sesion correcta, es la misma logica que ya
+    usa el scraper- y devuelve la pagina de detalle real tal cual la manda
+    seg-social.es, para que el link de la tabla lleve a la subasta
+    original de verdad (pedido explicito del cliente), no a la busqueda
+    generica que se usaba antes como alternativa."""
+    scraper = SegSocialScraper()
+    try:
+        # Cualquier busqueda alcanza para habilitar la sesion - no importan
+        # los resultados, solo se usa para dejar la sesion en el estado que
+        # el sitio espera antes de mostrar un detalle.
+        scraper.buscar(["28"])
+        resp = scraper.session.get(
+            SS_BASE, params={"opcion": 13, "EMB_ID": emb_id, "opcion2": 1, "tipoOperacion": 0}, timeout=15
+        )
+        resp.encoding = "iso-8859-1"
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        log.warning(f"No se pudo cargar el detalle de Seguridad Social EMB_ID={emb_id}: {e}")
+        return "No se pudo cargar el detalle - intentá de nuevo en un momento.", 502
+
+    # `resp.text` ya viene decodificado como texto Python (unicode) gracias
+    # al encoding de arriba - Flask lo va a mandar como UTF-8 por defecto,
+    # asi que el <meta charset=iso-8859-1> que trae la pagina original
+    # quedaria mintiendo sobre la codificacion real de la respuesta.
+    # <base href> resuelve las rutas relativas de CSS/imagenes de la
+    # pagina (ej. "/subastas/suba/subasrc/css/NML.css") contra el dominio
+    # real en vez del nuestro (127.0.0.1), para que se vea igual que en
+    # seg-social.es.
+    html = resp.text.replace("charset=iso-8859-1", "charset=utf-8", 1)
+    html = html.replace("<head>", '<head><base href="https://w6.seg-social.es/">', 1)
+    return html
 
 
 TAMANIO_PAGINA = 100

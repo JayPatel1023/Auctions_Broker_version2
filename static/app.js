@@ -273,17 +273,18 @@
   }
 
   function detalleUrl(r) {
-    // Seguridad Social exige haber pasado por una busqueda en esa misma
-    // sesion del navegador antes de poder ver el detalle de un lote -
-    // entrando directo desde aca (una sesion nueva) el sitio devuelve su
-    // propia "Pagina de Error" (confirmado en vivo). No hay forma de armar
-    // un link directo al lote sin esa sesion previa, asi que en vez de
-    // dejar el Id sin ningun link (pedido del cliente: que enlace con la
-    // web original tambien para Seguridad Social), se enlaza a la
-    // busqueda avanzada - no lleva directo al lote, pero es un link que
-    // funciona de verdad en vez de nada.
+    // Seguridad Social exige haber pasado por una busqueda de verdad en
+    // esa misma sesion antes de poder ver el detalle de un lote - una
+    // sesion nueva (como la del navegador del usuario, sin pasar por
+    // nuestro scraper) recibe la "Pagina de Error" del sitio (confirmado
+    // en vivo). Enlazar solo a la busqueda avanzada (como se hacia antes)
+    // no alcanzaba - pedido explicito del cliente: "debería llevar a la
+    // subasta original", no a un formulario de busqueda vacio. Por eso
+    // ahora pasa por /ss/detalle/<id>, que hace esa busqueda de
+    // calentamiento del lado del servidor (donde si se puede armar la
+    // sesion) y devuelve la pagina real de seg-social.es.
     if (r.id.indexOf("SS-") === 0) {
-      return "https://w6.seg-social.es/subastas/SubaSeControladorInter?opcion=6&avanzada=1";
+      return "/ss/detalle/" + encodeURIComponent(r.id.slice(3));
     }
     return "https://subastas.boe.es/detalleSubasta.php?idSub=" + encodeURIComponent(r.id);
   }
