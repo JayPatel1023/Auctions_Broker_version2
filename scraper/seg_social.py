@@ -73,11 +73,18 @@ def _money_to_float(txt):
 
 
 def _inferir_estado(fecha_txt):
-    """El sitio no da un estado explicito, solo la fecha/hora de la subasta."""
+    """El sitio no da un estado explicito, solo la fecha/hora de la subasta.
+
+    Cuando la fecha viene vacia o en un formato no reconocido, antes esto
+    devolvia "Proxima apertura" como default - confirmado en vivo que
+    algunos lotes reales del sitio traen esa celda vacia, y terminaban
+    mostrados como "Proxima apertura" en la tabla sin ninguna fecha en la
+    columna Cierra, dando a entender (incorrectamente) que se sabe que
+    van a abrir pronto cuando en realidad no se sabe nada de su fecha."""
     try:
         dt = datetime.strptime(fecha_txt.strip(), "%d/%m/%Y %H:%M")
     except (ValueError, AttributeError):
-        return "Próxima apertura"
+        return "Sin fecha"
     ahora = datetime.now()
     if dt.date() == ahora.date():
         return "Celebrándose"

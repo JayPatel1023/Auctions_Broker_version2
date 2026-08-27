@@ -176,7 +176,7 @@
   var TIPO_BIEN_BOE = ["Inmueble", "Vehículo", "Bien mueble"];
   var TIPO_BIEN_SS = ["Finca Rústica", "Finca Urbana", "Vehículo", "Embarcación", "Resto de Bienes Muebles"];
   var ESTADOS_BOE = ["Próxima apertura", "Celebrándose", "Suspendida", "Cancelada", "Concluida en Portal de Subastas", "Finalizada por Autoridad Gestora"];
-  var ESTADOS_SS = ["Próxima apertura", "Celebrándose", "Concluida"];
+  var ESTADOS_SS = ["Próxima apertura", "Celebrándose", "Concluida", "Sin fecha"];
 
   function union(a, b) {
     return a.concat(b.filter(function (v) { return a.indexOf(v) === -1; }));
@@ -215,6 +215,14 @@
     }
     if (estado === "Suspendida" || estado === "Cancelada") {
       return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>' + estado + '</span>';
+    }
+    if (estado === "Sin fecha") {
+      // Seguridad Social a veces no publica fecha para un lote - antes
+      // esto cayendo silenciosamente en "Proxima apertura" (ver
+      // _inferir_estado en el scraper), dando a entender que se sabe la
+      // fecha cuando en realidad no se sabe nada. Badge distinto para no
+      // mezclar "no sabemos" con "sabemos que abre pronto".
+      return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="none" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="3" x2="5" y2="5.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="5" cy="7" r="0.6" fill="currentColor"/></svg>Sin fecha</span>';
     }
     return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' + (estado || "Concluida") + '</span>';
   }
