@@ -9,6 +9,20 @@
 })();
 
 (function () {
+  // El scroll real pasa dentro de #main (overflow:auto), no en window/body
+  // -.app-window fija todo a 100vh y .main es el unico que scrollea. Pedido
+  // del cliente: con el historico completo trayendo miles de filas, llegar
+  // hasta la tabla (o volver arriba) a puro scroll era muy incomodo.
+  var main = document.getElementById("main");
+  document.getElementById("scroll-top").addEventListener("click", function () {
+    main.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("scroll-bottom").addEventListener("click", function () {
+    main.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+  });
+})();
+
+(function () {
   var PROVINCIAS = [
     "Araba/Álava","Albacete","Alicante/Alacant","Almería","Ávila","Badajoz","Illes Balears",
     "Barcelona","Burgos","Cáceres","Cádiz","Castellón/Castelló","Ciudad Real","Córdoba",
@@ -302,10 +316,16 @@
     }).join("");
   }
 
-  function renderPaginacion(pagina, totalPaginas) {
+  function renderPaginacion(pagina, totalPaginas, desde, hasta, total) {
     var row = document.getElementById("pagination-row");
     row.style.display = totalPaginas > 1 ? "flex" : "none";
-    document.getElementById("pag-info").textContent = "Página " + pagina + " de " + totalPaginas;
+    // Se repite el rango (no solo el numero de pagina) aca abajo, al lado
+    // de los botones - antes solo estaba arriba del todo (junto a los
+    // filtros), lejos de donde esta parado el usuario cuando llega al
+    // final de la tabla para pasar de pagina. Pedido del cliente: no
+    // quedaba claro en que pagina/rango estaba sin scrollear hasta arriba.
+    document.getElementById("pag-info").textContent =
+      desde + "–" + hasta + " de " + total.toLocaleString("es-ES") + " · Página " + pagina + " de " + totalPaginas;
     document.getElementById("pag-prev").disabled = pagina <= 1;
     document.getElementById("pag-next").disabled = pagina >= totalPaginas;
   }
@@ -336,17 +356,17 @@
         // paginaActual queda desincronizada de lo que el servidor mando.
         paginaActual = data.pagina;
         var msg;
+        var desde = (data.pagina - 1) * data.tamanio_pagina + 1;
+        var hasta = desde + rows.length - 1;
         if (!total) {
           msg = 'Sin resultados. Si todavía no sincronizaste, tocá "Actualizar".';
         } else {
-          var desde = (data.pagina - 1) * data.tamanio_pagina + 1;
-          var hasta = desde + rows.length - 1;
           msg = "Mostrando " + desde + "–" + hasta + " de " + total + " lotes";
         }
         document.getElementById("table-count").textContent = msg;
         renderKPIs(data.resumen);
         renderTable(rows);
-        renderPaginacion(data.pagina, data.total_paginas);
+        renderPaginacion(data.pagina, data.total_paginas, desde, hasta, total);
       })
       .catch(function (err) {
         // Sin esto, un error del servidor (ej. una base vieja sin migrar)

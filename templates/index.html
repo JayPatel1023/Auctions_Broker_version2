@@ -35,7 +35,7 @@
     </div>
   </div>
 
-  <div class="main">
+  <div class="main" id="main">
       <div class="pane-head">
         <h1>Buscador de subastas</h1>
         <p>Datos reales de BOE Subastas y Seguridad Social. Tocá "Actualizar" para traer lo último.</p>
@@ -144,6 +144,15 @@
     <span id="status-text">Listo</span>
     <span>Datos reales de subastas.boe.es y seg-social.es</span>
   </div>
+</div>
+
+<div class="scroll-buttons">
+  <button class="scroll-btn" id="scroll-top" title="Ir arriba">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M4 9.5L8 5.5L12 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button class="scroll-btn" id="scroll-bottom" title="Ir abajo">
+    <svg viewBox="0 0 16 16" fill="none"><path d="M4 6.5L8 10.5L12 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 </div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
