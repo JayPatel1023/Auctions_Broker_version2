@@ -297,7 +297,7 @@ def _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, 
 
 def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=None, tipo_bien=None, provincia=None, texto=None,
                  fecha_inicio_desde=None, fecha_inicio_hasta=None, fecha_conclusion_desde=None, fecha_conclusion_hasta=None,
-                 limite=None):
+                 limite=None, offset=None):
     """Ver _clausula_where para el significado de los filtros.
 
     limite: None (default) trae TODAS las filas que matcheen - lo que
@@ -308,7 +308,10 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
     frontend terminaba re-renderizando la tabla entera en cada tick del
     poll (cada 2-3 segundos mientras corre una sync) hasta quedarse sin
     memoria - confirmado en vivo por el cliente (WebView2 tiraba
-    "Codigo de error: Out of Memory")."""
+    "Codigo de error: Out of Memory").
+
+    offset: solo tiene efecto si limite tambien esta puesto (paginado de
+    /api/lotes, ver app.py) - sin limite no hay pagina de la que hablar."""
     where, params = _clausula_where(fuente, estado, tipo_subasta, categoria_subasta, tipo_bien, provincia, texto,
                                      fecha_inicio_desde, fecha_inicio_hasta, fecha_conclusion_desde, fecha_conclusion_hasta)
     conn = get_conn()
@@ -321,6 +324,9 @@ def query_lotes(fuente=None, estado=None, tipo_subasta=None, categoria_subasta=N
     if limite:
         sql += " LIMIT ?"
         params = params + [limite]
+        if offset:
+            sql += " OFFSET ?"
+            params = params + [offset]
     c.execute(sql, params)
     rows = [dict(r) for r in c.fetchall()]
     conn.close()

@@ -117,9 +117,19 @@ class SegSocialScraper:
 
     # ---------- listado ----------
 
-    def buscar(self, provincias, tipos_bien=None):
+    def buscar(self, provincias, tipos_bien=None, _reintentando=False):
         """provincias: lista de codigos INE de 2 digitos (mismos que BOE).
-        Devuelve lista de lotes resumidos de la pagina 1 de resultados."""
+        Devuelve lista de lotes resumidos de la pagina 1 de resultados.
+
+        _reintentando: uso interno. Antes, al toparse con la pagina de
+        error, esta funcion reseteaba la sesion y devolvia [] sin volver a
+        intentar la busqueda - el log decia "reintento con sesion nueva"
+        pero el reintento en si nunca pasaba. Eso hacia que un error de
+        sesion (confirmado que pasa de verdad, no solo en teoria) se
+        guardara en la base como "0 lotes en esta provincia", indistinguible
+        de que realmente no hubiera ninguno - se perdian datos reales sin
+        ningun aviso. Ahora se reintenta una vez de verdad con la sesion
+        nueva antes de rendirse."""
         self._asegurar_sesion()
         tipos_bien = tipos_bien or list(TIPOS_BIEN.keys())
 
@@ -141,10 +151,12 @@ class SegSocialScraper:
             return []
 
         if "ERROR en la Aplicaci" in resp.text:
+            if _reintentando:
+                log.error(f"provincias={provincias}: la app devolvio pagina de error otra vez tras reintentar con sesion nueva - se deja sin datos esta vuelta")
+                return []
             log.warning(f"provincias={provincias}: la app devolvio una pagina de error, reintento con sesion nueva")
             self._sesion_lista = False
-            self._asegurar_sesion()
-            return []
+            return self.buscar(provincias, tipos_bien, _reintentando=True)
 
         lotes = self._parse_listado(resp.text)
         self._wait()
@@ -167,6 +179,15 @@ class SegSocialScraper:
                 resp.raise_for_status()
             except requests.RequestException as e:
                 log.warning(f"Error en pagina {pagina}: {e}")
+                break
+            if "ERROR en la Aplicaci" in resp.text:
+                # La sesion puede caerse a mitad de la paginacion (no solo
+                # en la primera busqueda, ver buscar()) - sin este chequeo,
+                # _parse_listado() no encontraba ninguna tabla en la pagina
+                # de error y devolvia [], indistinguible de "se acabaron
+                # las paginas de resultados": la paginacion se cortaba en
+                # silencio, sin ningun aviso de que en realidad fallo.
+                log.warning(f"provincias={provincias}: pagina de error en pagina {pagina}, se corta la paginacion aca")
                 break
             nuevos = self._parse_listado(resp.text)
             if not nuevos:

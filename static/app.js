@@ -205,6 +205,13 @@
     return '<span class="badge cerrada"><svg viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' + (estado || "Concluida") + '</span>';
   }
 
+  // Se resetea a 1 solo cuando cambia un filtro (ver cargarDesdeFiltro),
+  // NO en cada refresco de cargar() - /api/lotes y el historico completo
+  // pollean cargar() cada 2-3 segundos mientras corre una sync (ver
+  // pollearSync/pollearHistorico), y si eso reseteara la pagina, alguien
+  // mirando la pagina 3 volveria a la 1 solo, cada par de segundos.
+  var paginaActual = 1;
+
   function filtrosActuales() {
     return {
       fuente: mFuente.getValues(),
@@ -229,6 +236,7 @@
     ["fecha_inicio_desde", "fecha_inicio_hasta", "fecha_conclusion_desde", "fecha_conclusion_hasta"].forEach(function (k) {
       if (f[k]) p.set(k, f[k]);
     });
+    p.set("pagina", paginaActual);
     return p;
   }
 
@@ -254,9 +262,15 @@
     // Seguridad Social exige haber pasado por una busqueda en esa misma
     // sesion del navegador antes de poder ver el detalle de un lote -
     // entrando directo desde aca (una sesion nueva) el sitio devuelve su
-    // propia pagina de error, asi que solo enlazamos BOE, que si permite
-    // entrar directo al detalle sin sesion previa.
-    if (r.id.indexOf("SS-") === 0) return null;
+    // propia "Pagina de Error" (confirmado en vivo). No hay forma de armar
+    // un link directo al lote sin esa sesion previa, asi que en vez de
+    // dejar el Id sin ningun link (pedido del cliente: que enlace con la
+    // web original tambien para Seguridad Social), se enlaza a la
+    // busqueda avanzada - no lleva directo al lote, pero es un link que
+    // funciona de verdad en vez de nada.
+    if (r.id.indexOf("SS-") === 0) {
+      return "https://w6.seg-social.es/subastas/SubaSeControladorInter?opcion=6&avanzada=1";
+    }
     return "https://subastas.boe.es/detalleSubasta.php?idSub=" + encodeURIComponent(r.id);
   }
 
@@ -288,6 +302,24 @@
     }).join("");
   }
 
+  function renderPaginacion(pagina, totalPaginas) {
+    var row = document.getElementById("pagination-row");
+    row.style.display = totalPaginas > 1 ? "flex" : "none";
+    document.getElementById("pag-info").textContent = "Página " + pagina + " de " + totalPaginas;
+    document.getElementById("pag-prev").disabled = pagina <= 1;
+    document.getElementById("pag-next").disabled = pagina >= totalPaginas;
+  }
+
+  // Cambiar de filtro invalida la pagina en la que se estaba parado (un
+  // filtro nuevo puede tener menos paginas, o las mismas paginas pero con
+  // otro contenido) - siempre se vuelve a la 1. Los pollers de sync SI
+  // usan cargar() directo (ver mas abajo), para no resetear la pagina en
+  // cada tick mientras el usuario esta mirando resultados.
+  function cargarDesdeFiltro() {
+    paginaActual = 1;
+    cargar();
+  }
+
   function cargar() {
     var params = paramsDeFiltros(filtrosActuales());
     fetch("/api/lotes?" + params.toString())
@@ -298,19 +330,23 @@
       .then(function (data) {
         var rows = data.lotes;
         var total = data.resumen.total;
+        // El servidor recorta `pagina` a total_paginas si un cambio de
+        // filtro la dejo fuera de rango (ej. estaba en la pagina 5 y el
+        // nuevo filtro solo tiene 2) - hay que reflejar eso aca, si no
+        // paginaActual queda desincronizada de lo que el servidor mando.
+        paginaActual = data.pagina;
         var msg;
         if (!total) {
           msg = 'Sin resultados. Si todavía no sincronizaste, tocá "Actualizar".';
-        } else if (total > data.limite) {
-          // No es un silencio - si se recortan filas hay que decirlo, si
-          // no parece que el filtro trajo menos de lo que en realidad hay.
-          msg = "Mostrando " + rows.length + " de " + total + " lotes (afiná los filtros para ver una lista más chica)";
         } else {
-          msg = "Mostrando " + total + " lotes";
+          var desde = (data.pagina - 1) * data.tamanio_pagina + 1;
+          var hasta = desde + rows.length - 1;
+          msg = "Mostrando " + desde + "–" + hasta + " de " + total + " lotes";
         }
         document.getElementById("table-count").textContent = msg;
         renderKPIs(data.resumen);
         renderTable(rows);
+        renderPaginacion(data.pagina, data.total_paginas);
       })
       .catch(function (err) {
         // Sin esto, un error del servidor (ej. una base vieja sin migrar)
@@ -396,18 +432,26 @@
     pollTimerHistorico = setInterval(tick, 3000);
   }
 
-  mFuente.onChange(function () { actualizarFiltrosSegunFuente(); cargar(); });
-  [mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.onChange(cargar); });
-  fText.addEventListener("input", cargar);
+  document.getElementById("pag-prev").addEventListener("click", function () {
+    if (paginaActual > 1) { paginaActual -= 1; cargar(); }
+  });
+  document.getElementById("pag-next").addEventListener("click", function () {
+    paginaActual += 1;
+    cargar();
+  });
+
+  mFuente.onChange(function () { actualizarFiltrosSegunFuente(); cargarDesdeFiltro(); });
+  [mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.onChange(cargarDesdeFiltro); });
+  fText.addEventListener("input", cargarDesdeFiltro);
   [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(function (el) {
-    el.addEventListener("change", cargar);
+    el.addEventListener("change", cargarDesdeFiltro);
   });
   document.getElementById("f-clear").addEventListener("click", function () {
     [mFuente, mEstado, mTipoSub, mTipoBien, mProv].forEach(function (m) { m.clear(); });
     fText.value = "";
     [fFechaInicioDesde, fFechaInicioHasta, fFechaFinDesde, fFechaFinHasta].forEach(function (el) { el.value = ""; });
     actualizarFiltrosSegunFuente();
-    cargar();
+    cargarDesdeFiltro();
   });
 
   document.getElementById("export-xls").addEventListener("click", function () {

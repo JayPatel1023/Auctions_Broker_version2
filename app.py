@@ -127,20 +127,23 @@ def index():
     return render_template("index.html")
 
 
-LIMITE_TABLA_PANTALLA = 500
+TAMANIO_PAGINA = 100
 
 
 @app.route("/api/lotes")
 def api_lotes():
-    """Devuelve como mucho LIMITE_TABLA_PANTALLA filas para pintar en la
-    tabla - antes mandaba TODAS las filas que matchearan sin limite, y con
-    el historico completo pasando los 10 mil lotes eso hacia que el
-    navegador reconstruyera la tabla entera en cada tick del poll (cada
-    2-3 segundos mientras corre una sync) hasta quedarse sin memoria
-    (confirmado en vivo por el cliente: WebView2 tiro "Codigo de error:
-    Out of Memory"). El "resumen" (para las tarjetas KPI) se calcula
-    aparte sobre el conjunto COMPLETO, no solo sobre estas filas
-    limitadas - ver db.resumen_lotes()."""
+    """Devuelve una pagina de TAMANIO_PAGINA filas (parametro ?pagina=,
+    1-indexado) en vez de mandar todo de una - antes mandaba hasta 500
+    filas de un saque para pintar la tabla, y con el historico completo
+    pasando los 10 mil lotes eso hacia que el navegador reconstruyera la
+    tabla entera en cada tick del poll (cada 2-3 segundos mientras corre
+    una sync) hasta quedarse sin memoria (confirmado en vivo por el
+    cliente: WebView2 tiro "Codigo de error: Out of Memory"). Paginado de
+    a 100 evita ese problema Y hace que scrollear miles de filas de una
+    sola tirada deje de ser necesario (pedido del cliente mientras
+    probaba el historico completo). El "resumen" (para las tarjetas KPI)
+    se calcula aparte sobre el conjunto COMPLETO, no solo sobre esta
+    pagina - ver db.resumen_lotes()."""
     filtros = dict(
         fuente=request.args.getlist("fuente") or None,
         estado=request.args.getlist("estado") or None,
@@ -153,9 +156,18 @@ def api_lotes():
         fecha_conclusion_desde=request.args.get("fecha_conclusion_desde") or None,
         fecha_conclusion_hasta=request.args.get("fecha_conclusion_hasta") or None,
     )
-    filas = db.query_lotes(limite=LIMITE_TABLA_PANTALLA, **filtros)
+    pagina = max(1, request.args.get("pagina", 1, type=int))
     resumen = db.resumen_lotes(**filtros)
-    return jsonify({"lotes": filas, "resumen": resumen, "limite": LIMITE_TABLA_PANTALLA})
+    total_paginas = max(1, (resumen["total"] + TAMANIO_PAGINA - 1) // TAMANIO_PAGINA)
+    pagina = min(pagina, total_paginas)
+    filas = db.query_lotes(limite=TAMANIO_PAGINA, offset=(pagina - 1) * TAMANIO_PAGINA, **filtros)
+    return jsonify({
+        "lotes": filas,
+        "resumen": resumen,
+        "pagina": pagina,
+        "total_paginas": total_paginas,
+        "tamanio_pagina": TAMANIO_PAGINA,
+    })
 
 
 @app.route("/api/sync", methods=["POST"])
