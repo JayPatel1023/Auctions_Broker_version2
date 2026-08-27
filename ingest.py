@@ -299,7 +299,7 @@ def _buscar_boe_fragmentado(scraper, provincia_cod, estado_cod, desde, hasta, pr
     return izquierda + derecha
 
 
-VENTANA_DIAS_HISTORICO = 30
+VENTANA_DIAS_HISTORICO = 7
 # Tamaño fijo de cada tramo de fecha del barrido historico. Antes el
 # checkpoint resumible solo guardaba el ULTIMO COMBO provincia+estado
 # terminado, y _buscar_boe_fragmentado biseccionaba el rango entero
@@ -314,6 +314,19 @@ VENTANA_DIAS_HISTORICO = 30
 # avanzar mas alla). Partiendo el barrido en tramos fijos y guardando el
 # progreso tramo a tramo (no solo combo a combo) se puede retomar dentro de
 # un mismo combo en vez de perder ese avance.
+#
+# 7 en vez de 30: BOE pagina sus resultados de a 50 y buscar()/_parse_listado
+# solo lee la primera pagina - un tramo con mas de 50 lotes reales pierde el
+# resto en silencio (confirmado en vivo: ventanas de 30 dias en provincias
+# densas venian devolviendo exactamente 50 una y otra vez, señal clara de
+# tope, no de coincidencia). Seguir la paginacion real de BOE es el arreglo
+# de fondo (pendiente - requiere reversar el mecanismo de "pagina siguiente"
+# contra el sitio real, y ahora mismo BOE esta bloqueando pedidos automaticos
+# por la cantidad de pruebas de hoy). Mientras tanto, un tramo mas chico
+# baja la densidad esperada por tramo y con eso la frecuencia con la que se
+# choca contra el limite de 50 - no lo elimina del todo (una provincia con
+# mas de 50 lotes en una sola semana todavia pierde el resto), pero reduce
+# bastante la perdida sin tener que tocar nada del lado de BOE.
 def _ventanas_historico(desde, hasta, dias=VENTANA_DIAS_HISTORICO):
     """Tramos de tamaño fijo para cubrir desde..hasta. El limite de cada
     tramo es SIEMPRE cursor + dias-1 (nunca se recorta contra `hasta`) para
