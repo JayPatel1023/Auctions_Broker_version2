@@ -294,6 +294,19 @@
     if (r.id.indexOf("SS-") === 0) {
       return "/ss/detalle/" + encodeURIComponent(r.id.slice(3));
     }
+    // Los lotes de una subasta con varios lotes se guardan como "<id
+    // base>-L<n>" para poder distinguirlos en nuestra tabla (ver
+    // detalle_lotes en boe.py) - pero esa forma de id no existe en BOE,
+    // ahi el id real es solo la parte base y el lote es un parametro
+    // aparte (idLote). Mandar el id CON el sufijo -L directo a idSub
+    // tiraba "ERROR: Identificador de subasta incorrecto" en el sitio
+    // real (confirmado en vivo) - se separa el sufijo y se arma la URL
+    // real de ese lote puntual (ver=3&idLote=N, mismo patron que usa
+    // detalle_bien() del scraper para pedir ese lote).
+    var loteMatch = /^(.*)-L(\d+)$/.exec(r.id);
+    if (loteMatch) {
+      return "https://subastas.boe.es/detalleSubasta.php?idSub=" + encodeURIComponent(loteMatch[1]) + "&ver=3&idLote=" + loteMatch[2];
+    }
     return "https://subastas.boe.es/detalleSubasta.php?idSub=" + encodeURIComponent(r.id);
   }
 
