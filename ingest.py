@@ -22,9 +22,12 @@ log = logging.getLogger("ingest")
 
 # Desde cuando arranca el barrido historico de BOE por defecto. El sitio no
 # tiene forma de preguntar "desde cuando hay datos", asi que se fija una
-# fecha razonable (el archivo Excel viejo del cliente es de nov. 2021) en
-# vez de ir año por año a ciegas hasta encontrar el principio.
-HISTORICO_DESDE = "2021-01-01"
+# fecha en vez de ir año por año a ciegas hasta encontrar el principio.
+# Antes era 2021-01-01 (el archivo Excel viejo del cliente era de nov.
+# 2021) - el cliente reviso a mano subastas.boe.es y confirmo que el sitio
+# tiene subastas concluidas desde 2014/2015, no solo desde 2021. 2021 era
+# un supuesto de alcance, no un limite real del sitio.
+HISTORICO_DESDE = "2014-01-01"
 
 # Provincias con mas volumen de subastas, para que el boton "Actualizar" de
 # la Fase 1 termine en unos minutos en vez de recorrer las 52 provincias con
