@@ -148,6 +148,31 @@ class BOEScraper:
     # ingest.py).
     MAX_PAGINAS_SEGUIDAS = 20
 
+    # Antes, el primer golpe de la pagina de verificacion de seguridad de
+    # BOE cortaba de una todo el resto de la sincronizacion historica que
+    # faltaba (para esa fuente) - confirmado en vivo (dos veces, en
+    # sesiones separadas con el cliente) que este bloqueo suele ser
+    # pasajero. Ahora se espera y se reintenta antes de rendirse de
+    # verdad, para que un bloqueo corto no tire por la borda horas de
+    # avance sin siquiera intentar de nuevo.
+    CAPTCHA_MAX_REINTENTOS = 2
+    CAPTCHA_ESPERA_SEGUNDOS = 120
+
+    def _reintentar_por_captcha(self, intento, contexto):
+        """Se llama al toparse con la pagina de verificacion de seguridad
+        de BOE. True si hay que reintentar (ya espero de por medio), False
+        si se agotaron los CAPTCHA_MAX_REINTENTOS y hay que rendirse de
+        verdad esta vez."""
+        if intento >= self.CAPTCHA_MAX_REINTENTOS:
+            return False
+        log.warning(
+            f"BOE pidió verificación de seguridad en {contexto} - esperando "
+            f"{self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar "
+            f"(intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
+        )
+        time.sleep(self.CAPTCHA_ESPERA_SEGUNDOS)
+        return True
+
     def buscar(self, provincia_cod: str, estado_cod: str, fecha_desde: str = None, fecha_hasta: str = None):
         """Busca lotes para una combinacion provincia x estado, opcionalmente
         acotado a un rango de fecha de conclusion (formato YYYY-MM-DD, es
@@ -174,27 +199,35 @@ class BOEScraper:
             fields["dato[17][0]"] = fecha_desde or ""
             fields["dato[17][1]"] = fecha_hasta or ""
 
-        try:
-            resp = self.session.post(SEARCH_URL, data=fields, timeout=30)
-            resp.raise_for_status()
-        except requests.RequestException as e:
-            log.error(f"Error consultando provincia={provincia_cod} estado={estado_cod}: {e}")
-            return [], False, False
+        contexto = (
+            f"provincia={PROVINCIAS.get(provincia_cod, provincia_cod)} "
+            f"estado={ESTADOS.get(estado_cod, estado_cod)} fecha={fecha_desde}..{fecha_hasta}"
+        )
+        intento = 0
+        while True:
+            try:
+                resp = self.session.post(SEARCH_URL, data=fields, timeout=30)
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                log.error(f"Error consultando {contexto}: {e}")
+                return [], False, False
+            if CAPTCHA_MSG in resp.text and self._reintentar_por_captcha(intento, contexto):
+                intento += 1
+                continue
+            break
 
         if EXCESO_MSG in resp.text:
-            log.warning(
-                f"provincia={PROVINCIAS.get(provincia_cod, provincia_cod)} "
-                f"estado={ESTADOS.get(estado_cod, estado_cod)} "
-                f"fecha={fecha_desde}..{fecha_hasta}: demasiados resultados"
-            )
+            log.warning(f"{contexto}: demasiados resultados")
             return [], False, True
 
         if CAPTCHA_MSG in resp.text:
             raise RuntimeError(
                 "BOE pidió una verificación de seguridad (probablemente por "
-                "muchas consultas seguidas). Esperá unos minutos y volvé a "
-                "intentar - si seguía sincronizando en silencio, los datos "
-                "hubieran quedado incompletos sin ningún aviso."
+                "muchas consultas seguidas) y siguió pidiéndola después de "
+                f"{self.CAPTCHA_MAX_REINTENTOS} reintentos con espera de por "
+                "medio. Esperá más tiempo y volvé a intentar - si seguía "
+                "sincronizando en silencio, los datos hubieran quedado "
+                "incompletos sin ningún aviso."
             )
 
         lotes, siguiente_href = self._parse_listado(resp.text, provincia_cod, estado_cod)
@@ -202,21 +235,29 @@ class BOEScraper:
 
         paginas_seguidas = 0
         while siguiente_href and paginas_seguidas < self.MAX_PAGINAS_SEGUIDAS:
-            try:
-                resp = self.session.get(f"{BASE}/{siguiente_href}", timeout=30)
-                resp.raise_for_status()
-            except requests.RequestException as e:
-                log.warning(
-                    f"Error siguiendo paginacion de provincia={provincia_cod} "
-                    f"estado={estado_cod} fecha={fecha_desde}..{fecha_hasta}: {e}"
-                )
+            intento = 0
+            while True:
+                try:
+                    resp = self.session.get(f"{BASE}/{siguiente_href}", timeout=30)
+                    resp.raise_for_status()
+                except requests.RequestException as e:
+                    log.warning(f"Error siguiendo paginacion de {contexto}: {e}")
+                    resp = None
+                    break
+                if CAPTCHA_MSG in resp.text and self._reintentar_por_captcha(intento, contexto):
+                    intento += 1
+                    continue
+                break
+            if resp is None:
                 break
             if CAPTCHA_MSG in resp.text:
                 raise RuntimeError(
                     "BOE pidió una verificación de seguridad (probablemente por "
-                    "muchas consultas seguidas). Esperá unos minutos y volvé a "
-                    "intentar - si seguía sincronizando en silencio, los datos "
-                    "hubieran quedado incompletos sin ningún aviso."
+                    "muchas consultas seguidas) y siguió pidiéndola después de "
+                    f"{self.CAPTCHA_MAX_REINTENTOS} reintentos con espera de por "
+                    "medio. Esperá más tiempo y volvé a intentar - si seguía "
+                    "sincronizando en silencio, los datos hubieran quedado "
+                    "incompletos sin ningún aviso."
                 )
             nuevos, siguiente_href = self._parse_listado(resp.text, provincia_cod, estado_cod)
             lotes.extend(nuevos)
