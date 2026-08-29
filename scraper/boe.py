@@ -110,7 +110,14 @@ def _money_to_float(txt):
 
 
 class BOEScraper:
-    def __init__(self, delay_min=1.0, delay_max=2.5):
+    # Antes 1.0-2.5s. Pedido del cliente tras ver bloqueos de verificacion
+    # de seguridad reiterados durante barridos largos: bajar la
+    # frecuencia de pedidos de entrada, no solo reintentar despues del
+    # bloqueo (ver _reintentar_por_captcha) - mas lento pero con menos
+    # chance de toparse con el bloqueo en primer lugar. El barrido
+    # historico ya corre en segundo plano durante horas, este cambio no
+    # lo hace notablemente mas lento en terminos relativos.
+    def __init__(self, delay_min=2.5, delay_max=5.0):
         self.session = requests.Session()
         self.delay_min = delay_min
         self.delay_max = delay_max
