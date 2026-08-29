@@ -29,6 +29,20 @@ log = logging.getLogger("ingest")
 # un supuesto de alcance, no un limite real del sitio.
 HISTORICO_DESDE = "2014-01-01"
 
+# Se sube cada vez que un cambio de codigo afecta lo que el barrido
+# historico extrae o cubre (ej. un campo que antes no se pedia, o un
+# rango de fechas mas amplio) - sin esto, un combo ya marcado "terminado"
+# de una corrida VIEJA se saltea de largo para siempre aunque el codigo
+# nuevo extraiga o cubra mas cosas, y los datos de ese combo quedan
+# obsoletos sin que nada los vuelva a tocar (confirmado en vivo varias
+# veces: el cliente seguia viendo el juzgado en vez del acreedor, o
+# Malaga sin llegar a 2014, en combos que databan de antes de esos
+# arreglos). Con esto, un checkpoint de una version anterior se descarta
+# entero la proxima vez que corre el barrido, sin que el usuario tenga
+# que borrar la base de datos a mano cada vez que se sube un arreglo.
+HISTORICO_VERSION_BOE = "2026-08-29-acreedor-2014-paginacion"
+HISTORICO_VERSION_SS = "2026-08-29-sin-fecha"
+
 # Provincias con mas volumen de subastas, para que el boton "Actualizar" de
 # la Fase 1 termine en unos minutos en vez de recorrer las 52 provincias con
 # detalle completo por lote (eso queda para el barrido historico de Fase 2).
@@ -375,6 +389,16 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
     ventana_completa = None
     if continuar:
         prev = db.get_sync_state("BOE Subastas Historico")
+        # Checkpoint de una version de codigo anterior (o sin version, de
+        # antes de que existiera este chequeo) - se descarta entero, ver
+        # HISTORICO_VERSION_BOE mas arriba.
+        if prev and prev.get("version") != HISTORICO_VERSION_BOE:
+            log.info(
+                f"Checkpoint de BOE historico es de otra version del codigo "
+                f"({prev.get('version')!r} != {HISTORICO_VERSION_BOE!r}) - "
+                f"se descarta y arranca una pasada nueva desde el principio"
+            )
+            prev = None
         anterior = prev["last_combo"] if prev else None
         if anterior:
             partes = anterior.split(":")
@@ -438,12 +462,12 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
                         db.upsert_lote(_lote_a_fila_db(lote))
                         total += 1
 
-            db.set_sync_state("BOE Subastas Historico", last_combo=f"{clave}:{v_hasta}")
+            db.set_sync_state("BOE Subastas Historico", last_combo=f"{clave}:{v_hasta}", version=HISTORICO_VERSION_BOE)
 
         # combo entero terminado (todos sus tramos) - se guarda SIN sufijo
         # de tramo para que la proxima vez se saltee entero de una y
         # arranque el siguiente combo desde su primer tramo, no a mitad.
-        db.set_sync_state("BOE Subastas Historico", last_combo=clave)
+        db.set_sync_state("BOE Subastas Historico", last_combo=clave, version=HISTORICO_VERSION_BOE)
 
     # El for termino la lista ENTERA sin cortarse (nadie hizo return/raise
     # antes) - fue una pasada completa de verdad, no una interrumpida a
@@ -455,6 +479,7 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
         "BOE Subastas Historico",
         last_full_sync=datetime.now().isoformat(timespec="seconds"),
         reiniciar_combo=True,
+        version=HISTORICO_VERSION_BOE,
     )
     return total
 
@@ -470,6 +495,13 @@ def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, 
     ultimo = None
     if continuar:
         prev = db.get_sync_state("Seguridad Social Historico")
+        if prev and prev.get("version") != HISTORICO_VERSION_SS:
+            log.info(
+                f"Checkpoint de Seguridad Social historico es de otra version del codigo "
+                f"({prev.get('version')!r} != {HISTORICO_VERSION_SS!r}) - "
+                f"se descarta y arranca una pasada nueva desde el principio"
+            )
+            prev = None
         ultimo = prev["last_combo"] if prev else None
     saltando = ultimo is not None
 
@@ -492,7 +524,7 @@ def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, 
                 db.upsert_lote(_lote_seg_social_a_fila_db(lote))
                 total += 1
 
-        db.set_sync_state("Seguridad Social Historico", last_combo=prov_cod)
+        db.set_sync_state("Seguridad Social Historico", last_combo=prov_cod, version=HISTORICO_VERSION_SS)
 
     # Mismo motivo que en sync_boe_historico: pasada completa de verdad,
     # reiniciar el combo para que la proxima vuelva a arrancar desde el
@@ -501,6 +533,7 @@ def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, 
         "Seguridad Social Historico",
         last_full_sync=datetime.now().isoformat(timespec="seconds"),
         reiniciar_combo=True,
+        version=HISTORICO_VERSION_SS,
     )
     return total
 

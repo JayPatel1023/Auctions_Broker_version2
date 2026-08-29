@@ -135,19 +135,25 @@ def _migrar_columnas_faltantes(conn):
     reales sincronizados) se queda con el esquema viejo para siempre sin
     esto, y cada query rompe con 'no such column' apenas se agrega una
     columna nueva en una version posterior."""
-    columnas_nuevas = {
-        "categoria_subasta": "TEXT",
-        "fecha_inicio_iso": "TEXT",
-        "fecha_conclusion_iso": "TEXT",
-        "codigo_postal": "TEXT",
-        "importe_puja_ganadora": "REAL",
+    tablas = {
+        "lotes": {
+            "categoria_subasta": "TEXT",
+            "fecha_inicio_iso": "TEXT",
+            "fecha_conclusion_iso": "TEXT",
+            "codigo_postal": "TEXT",
+            "importe_puja_ganadora": "REAL",
+        },
+        "sync_state": {
+            "version": "TEXT",
+        },
     }
     c = conn.cursor()
-    c.execute("PRAGMA table_info(lotes)")
-    existentes = {fila[1] for fila in c.fetchall()}
-    for columna, tipo in columnas_nuevas.items():
-        if columna not in existentes:
-            c.execute(f"ALTER TABLE lotes ADD COLUMN {columna} {tipo}")
+    for tabla, columnas_nuevas in tablas.items():
+        c.execute(f"PRAGMA table_info({tabla})")
+        existentes = {fila[1] for fila in c.fetchall()}
+        for columna, tipo in columnas_nuevas.items():
+            if columna not in existentes:
+                c.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}")
     conn.commit()
 
 
@@ -194,7 +200,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sync_state (
             fuente TEXT PRIMARY KEY,
             last_full_sync TEXT,
-            last_combo TEXT
+            last_combo TEXT,
+            version TEXT
         )
         """
     )
@@ -398,7 +405,7 @@ def get_sync_state(fuente):
     return dict(row) if row else None
 
 
-def set_sync_state(fuente, last_full_sync=None, last_combo=None, reiniciar_combo=False):
+def set_sync_state(fuente, last_full_sync=None, last_combo=None, reiniciar_combo=False, version=None):
     """last_combo=None normalmente NO borra el valor guardado (el COALESCE
     lo preserva a proposito, para que guardar solo last_full_sync al final
     de una pasada no pise por accidente el ultimo combo mientras todavia
@@ -410,28 +417,35 @@ def set_sync_state(fuente, last_full_sync=None, last_combo=None, reiniciar_combo
     que ya estaban hechos) sin bajar nada nuevo - confirmado en vivo: el
     boton mostraba "Descargando..." un instante y volvia solo a "Pasada
     completa - 0 lotes nuevos", porque la funcion terminaba casi al
-    toque sin hacer ningun pedido real."""
+    toque sin hacer ningun pedido real.
+
+    version: identifica que version del codigo de sync produjo este
+    checkpoint (ver HISTORICO_VERSION_BOE/SS en ingest.py) - mismo
+    criterio de COALESCE que last_combo, se preserva si no se pasa
+    explicito."""
     conn = get_conn()
     c = conn.cursor()
     if reiniciar_combo:
         c.execute(
             """
-            INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, NULL)
+            INSERT INTO sync_state (fuente, last_full_sync, last_combo, version) VALUES (?, ?, NULL, ?)
             ON CONFLICT(fuente) DO UPDATE SET
                 last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
-                last_combo = NULL
+                last_combo = NULL,
+                version = COALESCE(excluded.version, sync_state.version)
             """,
-            (fuente, last_full_sync),
+            (fuente, last_full_sync, version),
         )
     else:
         c.execute(
             """
-            INSERT INTO sync_state (fuente, last_full_sync, last_combo) VALUES (?, ?, ?)
+            INSERT INTO sync_state (fuente, last_full_sync, last_combo, version) VALUES (?, ?, ?, ?)
             ON CONFLICT(fuente) DO UPDATE SET
                 last_full_sync = COALESCE(excluded.last_full_sync, sync_state.last_full_sync),
-                last_combo = COALESCE(excluded.last_combo, sync_state.last_combo)
+                last_combo = COALESCE(excluded.last_combo, sync_state.last_combo),
+                version = COALESCE(excluded.version, sync_state.version)
             """,
-            (fuente, last_full_sync, last_combo),
+            (fuente, last_full_sync, last_combo, version),
         )
     conn.commit()
     conn.close()
