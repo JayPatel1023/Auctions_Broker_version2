@@ -25,6 +25,15 @@ import requests
 
 COD_POR_NOMBRE_PROVINCIA = {nombre: cod for cod, nombre in PROVINCIAS_BOE.items()}
 
+# Se muestra en el pie de la pantalla (ver templates/index.html) - subir
+# a mano en cada tanda de cambios que se le manda al cliente. Sin esto,
+# tanto nosotros como el cliente terminabamos adivinando que version
+# estaba corriendo en base a pistas indirectas (formato de los mensajes
+# de log, si aparecia tal boton o no) - confirmado en vivo: mas de una
+# vez hizo falta reconstruir a partir de esas pistas si el cliente estaba
+# probando la version mas nueva o una intermedia.
+APP_VERSION = "2026-08-29"
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")
 
@@ -126,7 +135,7 @@ def _historico_en_segundo_plano(fuentes=None):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", version=APP_VERSION)
 
 
 @app.route("/ss/detalle/<emb_id>")
