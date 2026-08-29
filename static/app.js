@@ -575,13 +575,15 @@
     var btn = document.getElementById("btn-historico");
     var label = btn.querySelector(".btn-label");
     label.textContent = "Descargando histórico...";
-    // Igual que "Actualizar": respeta el filtro de Fuente tildado en
-    // pantalla. Antes siempre bajaba BOE y Seguridad Social juntos sin
-    // importar el filtro - confirmado con el cliente, que tenia solo BOE
-    // Subastas tildado y de todos modos le corto todo el barrido un error
-    // de Seguridad Social.
+    // Igual que "Actualizar": respeta el filtro de Fuente Y de Provincia
+    // tildados en pantalla. Antes siempre bajaba las 52 provincias de las
+    // 2 fuentes sin importar ningun filtro - confirmado con el cliente,
+    // que tenia solo BOE Subastas tildado y de todos modos le corto todo
+    // el barrido un error de Seguridad Social; y pidio poder probar con
+    // una sola provincia (Malaga) en vez de esperar el barrido completo.
     var params = new URLSearchParams();
     mFuente.getValues().forEach(function (f) { params.append("fuente", f); });
+    mProv.getValues().forEach(function (p) { params.append("provincia", p); });
     fetch("/api/sync_historico?" + params.toString(), { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function () { pollearHistorico(); })

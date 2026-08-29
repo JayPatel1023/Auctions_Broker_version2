@@ -92,7 +92,7 @@ def _sync_en_segundo_plano(provincias=None, fuentes=None):
         sync_status["en_progreso"] = False
 
 
-def _historico_en_segundo_plano(fuentes=None):
+def _historico_en_segundo_plano(fuentes=None, provincias=None):
     """fuentes: subconjunto de {"BOE Subastas", "Seguridad Social"}, o
     None/vacio para las dos - mismo criterio que _sync_en_segundo_plano.
     Antes este botón siempre bajaba las dos fuentes sin importar que
@@ -100,6 +100,13 @@ def _historico_en_segundo_plano(fuentes=None):
     solo afecta que se muestra en la tabla, no que se descarga) -
     confirmado con el cliente, que tenia solo BOE Subastas tildado en el
     filtro y de todos modos le salio un error de Seguridad Social.
+
+    provincias: igual que en _sync_en_segundo_plano, si el usuario tildo
+    provincias puntuales en el filtro se acota el barrido historico a
+    esas nada mas - pedido del cliente para poder probar con una sola
+    provincia (ej. Malaga) en vez de esperar las 52 completas, que ahora
+    con el rango desde 2014 y la paginacion real de BOE puede tardar
+    mucho mas.
 
     Cada fuente corre en su propio try/except: antes, si Seguridad Social
     fallaba (ej. un corte de red momentaneo resolviendo su dominio), la
@@ -114,13 +121,13 @@ def _historico_en_segundo_plano(fuentes=None):
     errores = []
     if not fuentes or "BOE Subastas" in fuentes:
         try:
-            total += sync_boe_historico(progreso=progreso)
+            total += sync_boe_historico(provincias=provincias, progreso=progreso)
         except Exception as e:
             log.exception("Error durante el barrido histórico de BOE")
             errores.append(f"BOE: {e}")
     if not fuentes or "Seguridad Social" in fuentes:
         try:
-            total += sync_seg_social_historico(progreso=progreso)
+            total += sync_seg_social_historico(provincias=provincias, progreso=progreso)
         except Exception as e:
             log.exception("Error durante el barrido histórico de Seguridad Social")
             errores.append(f"Seguridad Social: {e}")
@@ -254,19 +261,23 @@ def api_sync_historico():
     Puede tardar horas: se puede cerrar la app y volver a tocar el botón
     despues, retoma justo donde quedó (ver sync_state en db.py).
 
-    Igual que /api/sync, respeta el filtro de Fuente tildado en pantalla
-    (antes bajaba BOE y Seguridad Social siempre, sin importar el
-    filtro)."""
+    Igual que /api/sync, respeta el filtro de Fuente Y de Provincia
+    tildados en pantalla (antes bajaba BOE y Seguridad Social siempre
+    para las 52 provincias, sin importar ningun filtro - pedido del
+    cliente: poder probar con una sola provincia en vez de esperar el
+    barrido completo)."""
     with historico_lock:
         if historico_status["en_progreso"]:
             return jsonify({"status": "ya_en_progreso"}), 409
         fuentes = request.args.getlist("fuente") or None
+        nombres_provincia = request.args.getlist("provincia")
+        provincias = [COD_POR_NOMBRE_PROVINCIA[n] for n in nombres_provincia if n in COD_POR_NOMBRE_PROVINCIA] or None
         historico_status["en_progreso"] = True
         historico_status["mensaje"] = "Arrancando barrido histórico..."
         historico_status["lotes_procesados"] = 0
         threading.Thread(
             target=_historico_en_segundo_plano,
-            kwargs={"fuentes": fuentes},
+            kwargs={"fuentes": fuentes, "provincias": provincias},
             daemon=True,
         ).start()
     return jsonify({"status": "iniciado"})
