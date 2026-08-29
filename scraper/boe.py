@@ -141,11 +141,31 @@ class BOEScraper:
 
     # ---------- listado ----------
 
+    # Tope de paginas seguidas por combinacion provincia+estado+fecha, para
+    # no quedar en un loop sin fin ante algo inesperado del lado del sitio
+    # - 20 paginas de 50 son 1000 lotes reales, mucho mas de lo que se
+    # espera de una ventana ya fragmentada (ver VENTANA_DIAS_HISTORICO en
+    # ingest.py).
+    MAX_PAGINAS_SEGUIDAS = 20
+
     def buscar(self, provincia_cod: str, estado_cod: str, fecha_desde: str = None, fecha_hasta: str = None):
         """Busca lotes para una combinacion provincia x estado, opcionalmente
         acotado a un rango de fecha de conclusion (formato YYYY-MM-DD, es
         lo que espera el sitio pese a mostrar DD/MM/YYYY en pantalla).
-        Devuelve (lista_de_lotes_resumidos, hay_mas_paginas, excesivo)."""
+
+        Sigue automaticamente todas las paginas de resultados hasta
+        agotarlas (BOE pagina de a 50) - antes esto se quedaba solo con la
+        primera pagina y perdia en silencio cualquier resultado mas alla
+        del 50 (confirmado en vivo: una ventana con 74 resultados reales
+        quedaba truncada a 50, sin ningun aviso ni error - el chequeo de
+        "hay mas paginas" de antes tampoco detectaba esto: buscaba el link
+        "Pág. siguiente" por su .string, que da None apenas el texto tiene
+        una etiqueta <abbr> adentro, como en este sitio).
+
+        Devuelve (lista_de_lotes_resumidos, hay_mas_paginas, excesivo).
+        hay_mas_paginas queda en la firma por compatibilidad, pero con
+        esto ya no hay paginas pendientes de traer (siempre False),
+        salvo que se corte por MAX_PAGINAS_SEGUIDAS."""
         fields = self._base_fields()
         fields["dato[8]"] = provincia_cod
         fields["dato[2]"] = estado_cod
@@ -177,9 +197,41 @@ class BOEScraper:
                 "hubieran quedado incompletos sin ningún aviso."
             )
 
-        lotes, hay_mas = self._parse_listado(resp.text, provincia_cod, estado_cod)
+        lotes, siguiente_href = self._parse_listado(resp.text, provincia_cod, estado_cod)
         self._wait()
-        return lotes, hay_mas, False
+
+        paginas_seguidas = 0
+        while siguiente_href and paginas_seguidas < self.MAX_PAGINAS_SEGUIDAS:
+            try:
+                resp = self.session.get(f"{BASE}/{siguiente_href}", timeout=30)
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                log.warning(
+                    f"Error siguiendo paginacion de provincia={provincia_cod} "
+                    f"estado={estado_cod} fecha={fecha_desde}..{fecha_hasta}: {e}"
+                )
+                break
+            if CAPTCHA_MSG in resp.text:
+                raise RuntimeError(
+                    "BOE pidió una verificación de seguridad (probablemente por "
+                    "muchas consultas seguidas). Esperá unos minutos y volvé a "
+                    "intentar - si seguía sincronizando en silencio, los datos "
+                    "hubieran quedado incompletos sin ningún aviso."
+                )
+            nuevos, siguiente_href = self._parse_listado(resp.text, provincia_cod, estado_cod)
+            lotes.extend(nuevos)
+            self._wait()
+            paginas_seguidas += 1
+
+        if siguiente_href:
+            log.warning(
+                f"provincia={PROVINCIAS.get(provincia_cod, provincia_cod)} "
+                f"estado={ESTADOS.get(estado_cod, estado_cod)} fecha={fecha_desde}..{fecha_hasta}: "
+                f"se corto la paginacion en {self.MAX_PAGINAS_SEGUIDAS} paginas seguidas, "
+                f"pueden quedar resultados sin traer"
+            )
+
+        return lotes, False, False
 
     def _parse_listado(self, html: str, provincia_cod: str, estado_cod: str):
         soup = BeautifulSoup(html, "html.parser")
@@ -239,8 +291,18 @@ class BOEScraper:
                 "descripcion_resumen": descripcion,
             })
 
-        hay_mas = bool(soup.find("a", string=re.compile("siguiente", re.I)))
-        return lotes, hay_mas
+        # buscar por .string (que exige que el <a> tenga un solo hijo de
+        # texto) nunca encontraba este link: el texto real es
+        # '<abbr title="Página">Pág.</abbr> siguiente', con un hijo <abbr>
+        # de por medio - .string da None ahi (confirmado en vivo). Por eso
+        # se busca por el texto COMPLETO del link (incluye los hijos) en
+        # vez de por .string.
+        siguiente_href = None
+        for a in soup.find_all("a"):
+            if "siguiente" in a.get_text(strip=True).lower():
+                siguiente_href = a.get("href")
+                break
+        return lotes, siguiente_href
 
     # ---------- detalle ----------
 
