@@ -132,6 +132,7 @@ def _lote_a_fila_db(lote: dict) -> dict:
         "provincia": lote.get("provincia_busqueda") or lote.get("provincia", ""),
         "localidad": lote.get("localidad", ""),
         "direccion": lote.get("direccion", ""),
+        "codigo_postal": lote.get("codigo_postal", ""),
         "descripcion": lote.get("descripcion") or lote.get("descripcion_resumen", ""),
         "referencia_catastral": lote.get("referencia_catastral", ""),
         "marca": lote.get("marca", ""),
@@ -143,6 +144,11 @@ def _lote_a_fila_db(lote: dict) -> dict:
         "tramos_entre_pujas": lote.get("tramos_entre_pujas"),
         "puja_minima": lote.get("puja_minima"),
         "importe_deposito": lote.get("importe_deposito"),
+        # Pedido explicito del cliente: importe de la puja ganadora de
+        # cada subasta concluida/finalizada (ver _detalle_pujas en
+        # boe.py) - vacio si nadie oferto o si la subasta no tiene ese
+        # dato disponible todavia (activa, no concluida).
+        "importe_puja_ganadora": lote.get("importe_puja_ganadora"),
         # Pedido explicito del cliente: la columna Nombre debe traer el
         # Acreedor (quien reclama la deuda), no el juzgado/organismo que
         # tramita el caso (que es lo que traia antes, via lote["nombre"] -

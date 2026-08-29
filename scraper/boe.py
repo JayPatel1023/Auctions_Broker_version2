@@ -291,6 +291,14 @@ class BOEScraper:
         comunes["acreedor"] = self._detalle_acreedor(id_sub)
         self._wait()
 
+        # Igual que el acreedor: la pagina de pujas (ver=5) trae TODOS los
+        # lotes de la subasta en un solo pedido (una tabla con un importe
+        # por numero de lote si hay varios, o un unico importe suelto si
+        # hay uno solo - ver _detalle_pujas), asi que se pide una sola vez
+        # aca en vez de una vez por lote.
+        pujas = self._detalle_pujas(id_sub)
+        self._wait()
+
         valor_lotes = str(comunes.get("lotes", "")).lower()
         n = 1
         m = re.search(r"\d+", valor_lotes)
@@ -307,11 +315,18 @@ class BOEScraper:
                 "descripcion": bien.get("descripcion", ""),
                 "referencia_catastral": bien.get("referencia_catastral", ""),
                 "direccion": bien.get("direccion", ""),
+                "codigo_postal": bien.get("codigo_postal", ""),
                 "localidad": bien.get("localidad", ""),
                 "provincia": bien.get("provincia", ""),
                 "marca": bien.get("marca", ""),
                 "modelo": bien.get("modelo", ""),
                 "matricula": bien.get("matricula", ""),
+                # pedido explicito del cliente: importe de la puja ganadora
+                # (la mas alta realizada) de cada subasta concluida/finalizada.
+                # pujas.get(i) da None tanto si nadie oferto ("Sin puja") como
+                # si la subasta ni siquiera tiene ese dato todavia disponible -
+                # en los dos casos corresponde dejar la columna vacia.
+                "importe_puja_ganadora": pujas.get(i),
             })
             if n > 1:
                 for campo, campo_lote in [
@@ -387,6 +402,48 @@ class BOEScraper:
             return ""
         return self._tabla_a_dict(tabla).get("Nombre", "")
 
+    def _detalle_pujas(self, id_sub: str):
+        """Importe de la puja ganadora (la mas alta realizada) de cada
+        lote de una subasta - pagina aparte (ver=5), pedido explicito del
+        cliente para subastas concluidas/finalizadas. Confirmado en vivo
+        contra subastas.boe.es que esta pagina tiene 2 formatos distintos
+        segun la subasta tenga uno o varios lotes:
+          - un solo lote: un unico importe suelto bajo el titulo "Puja
+            maxima de la subasta" (o "Sin puja" si nadie oferto).
+          - varios lotes: una tabla "Pujas maximas" con una fila por
+            numero de lote.
+        Devuelve {numero_lote: importe_o_None}; con un solo lote queda
+        bajo la clave 1 (mismo criterio que id_lote=None en el resto del
+        scraper). Es un dato de la SUBASTA entera, no hace falta pedirlo
+        una vez por lote."""
+        try:
+            resp = self.session.get(DETALLE_URL, params={"idSub": id_sub, "ver": 5}, timeout=30)
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            log.warning(f"No se pudo obtener las pujas de {id_sub}: {e}")
+            return {}
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        pujas = {}
+
+        tabla = soup.find("table")
+        if tabla and tabla.find("th", id="lote"):
+            for tr in tabla.select("tbody tr"):
+                tds = tr.find_all("td")
+                if len(tds) < 2:
+                    continue
+                num_m = re.search(r"\d+", _clean(tds[0].get_text()))
+                if num_m:
+                    pujas[int(num_m.group(0))] = _money_to_float(tds[1].get_text())
+            return pujas
+
+        h4 = soup.find("h4", string=re.compile(r"^Puja m.xima de la subasta"))
+        if h4:
+            valor = h4.find_next("strong")
+            if valor:
+                pujas[1] = _money_to_float(valor.get_text())
+        return pujas
+
     def _detalle_bien(self, id_sub: str, id_lote=None):
         params = {"idSub": id_sub, "ver": 3}
         if id_lote is not None:
@@ -425,6 +482,7 @@ class BOEScraper:
             "descripcion": campos.get("Descripción", "").replace("Descripción:", "").strip(),
             "referencia_catastral": campos.get("Referencia catastral", ""),
             "direccion": campos.get("Dirección", ""),
+            "codigo_postal": campos.get("Código Postal", ""),
             "localidad": campos.get("Localidad", ""),
             "provincia": campos.get("Provincia", ""),
             "marca": campos.get("Marca", ""),
