@@ -404,8 +404,19 @@
     return fetch("/api/estado")
       .then(function (r) { return r.json(); })
       .then(function (e) {
+        // Antes solo miraba boe_ultima_sync/seg_social_ultima_sync (los que
+        // pisa "Actualizar") - un barrido de "Descargar histórico completo"
+        // corriendo horas en segundo plano no lo actualizaba nunca, y el
+        // cartel quedaba mostrando una fecha vieja aunque la app estuviera
+        // trayendo datos activamente (confirmado en vivo: confundia al
+        // cliente, parecia que la app no habia hecho nada reciente).
         var nota = document.getElementById("ultima-sync");
-        var ultima = [e.boe_ultima_sync, e.seg_social_ultima_sync].filter(Boolean).sort().pop();
+        var ultima = [
+          e.boe_ultima_sync,
+          e.seg_social_ultima_sync,
+          e.historico_boe_ultima_pasada,
+          e.historico_seg_social_ultima_pasada,
+        ].filter(Boolean).sort().pop();
         nota.textContent = ultima
           ? "Última sincronización: " + ultima.replace("T", " ")
           : "Todavía no sincronizado";
