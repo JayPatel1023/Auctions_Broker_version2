@@ -256,7 +256,7 @@ def sync_boe(provincias=None, estados=None, con_detalle=True, limite_por_combo=N
     """Descarga lotes de BOE Subastas y los guarda en SQLite.
     progreso: callback opcional(mensaje:str) para reportar avance a la UI."""
     db.init_db()
-    scraper = BOEScraper()
+    scraper = BOEScraper(progreso=progreso)
     provincias = provincias or list(PROVINCIAS.keys())
     estados = estados or ESTADOS_ACTIVOS
 
@@ -379,7 +379,7 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
     saltea de largo un combo que quedo a mitad de camino."""
     db.init_db()
     hasta = hasta or date.today().isoformat()
-    scraper = BOEScraper()
+    scraper = BOEScraper(progreso=progreso)
     provincias = provincias or list(PROVINCIAS.keys())
     combos = [(p, e) for e in ESTADOS_HISTORICOS for p in provincias]
     ventanas = _ventanas_historico(desde, hasta)

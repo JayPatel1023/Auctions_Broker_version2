@@ -32,7 +32,7 @@ COD_POR_NOMBRE_PROVINCIA = {nombre: cod for cod, nombre in PROVINCIAS_BOE.items(
 # de log, si aparecia tal boton o no) - confirmado en vivo: mas de una
 # vez hizo falta reconstruir a partir de esas pistas si el cliente estaba
 # probando la version mas nueva o una intermedia.
-APP_VERSION = "2026-08-29.4"
+APP_VERSION = "2026-08-31.1"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("app")

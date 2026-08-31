@@ -117,10 +117,21 @@ class BOEScraper:
     # chance de toparse con el bloqueo en primer lugar. El barrido
     # historico ya corre en segundo plano durante horas, este cambio no
     # lo hace notablemente mas lento en terminos relativos.
-    def __init__(self, delay_min=2.5, delay_max=5.0):
+    # Idea del cliente (2026-08-31) tras ver que el barrido historico
+    # seguia bloqueandose pese al delay entre pedidos: en vez de solo
+    # reintentar DESPUES de que ya bloqueo (ver CAPTCHA_ESPERA_SEGUNDOS
+    # mas abajo), descansar un rato mas largo cada tantos pedidos para
+    # bajar la chance de llegar a bloquearse en primer lugar. Es
+    # preventivo, complementa al reintento reactivo, no lo reemplaza.
+    PEDIDOS_POR_DESCANSO = 150
+    DESCANSO_SEGUNDOS = 300
+
+    def __init__(self, delay_min=2.5, delay_max=5.0, progreso=None):
         self.session = requests.Session()
         self.delay_min = delay_min
         self.delay_max = delay_max
+        self.progreso = progreso
+        self._pedidos_desde_descanso = 0
         self._rotate_headers()
 
     def _rotate_headers(self):
@@ -132,6 +143,14 @@ class BOEScraper:
 
     def _wait(self):
         time.sleep(random.uniform(self.delay_min, self.delay_max))
+        self._pedidos_desde_descanso += 1
+        if self._pedidos_desde_descanso >= self.PEDIDOS_POR_DESCANSO:
+            self._pedidos_desde_descanso = 0
+            msg = f"Pausa preventiva de {self.DESCANSO_SEGUNDOS}s cada {self.PEDIDOS_POR_DESCANSO} pedidos (para no llegar al bloqueo de BOE)"
+            log.info(msg)
+            if self.progreso:
+                self.progreso(msg)
+            time.sleep(self.DESCANSO_SEGUNDOS)
 
     def _base_fields(self):
         return {
@@ -162,8 +181,15 @@ class BOEScraper:
     # pasajero. Ahora se espera y se reintenta antes de rendirse de
     # verdad, para que un bloqueo corto no tire por la borda horas de
     # avance sin siquiera intentar de nuevo.
-    CAPTCHA_MAX_REINTENTOS = 2
-    CAPTCHA_ESPERA_SEGUNDOS = 120
+    #
+    # Antes 2 reintentos x 120s (4 minutos en total). Probado en vivo
+    # (2026-08-31, barrido de Malaga): con esos valores el bloqueo seguia
+    # activo en los 4 minutos y la pasada terminaba rindiendose siempre -
+    # el bloqueo real de BOE dura mas que eso. Subido a 5 reintentos x
+    # 600s (hasta 50 minutos en total) para dar tiempo real a que se
+    # destrabe solo antes de rendirse.
+    CAPTCHA_MAX_REINTENTOS = 5
+    CAPTCHA_ESPERA_SEGUNDOS = 600
 
     def _reintentar_por_captcha(self, intento, contexto):
         """Se llama al toparse con la pagina de verificacion de seguridad
@@ -172,11 +198,14 @@ class BOEScraper:
         verdad esta vez."""
         if intento >= self.CAPTCHA_MAX_REINTENTOS:
             return False
-        log.warning(
+        msg = (
             f"BOE pidió verificación de seguridad en {contexto} - esperando "
             f"{self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar "
             f"(intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
         )
+        log.warning(msg)
+        if self.progreso:
+            self.progreso(msg)
         time.sleep(self.CAPTCHA_ESPERA_SEGUNDOS)
         return True
 
