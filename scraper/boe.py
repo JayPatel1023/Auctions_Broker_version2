@@ -188,6 +188,14 @@ class BOEScraper:
     # el bloqueo real de BOE dura mas que eso. Subido a 5 reintentos x
     # 600s (hasta 50 minutos en total) para dar tiempo real a que se
     # destrabe solo antes de rendirse.
+    #
+    # Probado en vivo de nuevo (2026-09-01): con 5x600s (50 minutos
+    # reales esperados) el bloqueo SEGUIA activo al final de los 5
+    # reintentos - la sesion (cookies) se mantenia igual en todos los
+    # reintentos, solo cambiaba el tiempo esperado. Ahora ademas se arma
+    # sesion nueva (cookies limpias) y se rota el User-Agent antes de
+    # cada reintento, por si el bloqueo esta atado a la sesion y no solo
+    # al tiempo transcurrido.
     CAPTCHA_MAX_REINTENTOS = 5
     CAPTCHA_ESPERA_SEGUNDOS = 600
 
@@ -200,13 +208,15 @@ class BOEScraper:
             return False
         msg = (
             f"BOE pidió verificación de seguridad en {contexto} - esperando "
-            f"{self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar "
-            f"(intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
+            f"{self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar con sesión "
+            f"nueva (intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
         )
         log.warning(msg)
         if self.progreso:
             self.progreso(msg)
         time.sleep(self.CAPTCHA_ESPERA_SEGUNDOS)
+        self.session = requests.Session()
+        self._rotate_headers()
         return True
 
     def buscar(self, provincia_cod: str, estado_cod: str, fecha_desde: str = None, fecha_hasta: str = None):
