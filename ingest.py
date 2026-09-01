@@ -418,6 +418,22 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
                     ventana_completa = None
             else:
                 combo_completo = anterior
+        # El checkpoint es global (una sola fila en sync_state), pero
+        # `combos` puede ser un subconjunto mas chico que la vez anterior
+        # (ej. se filtro por Provincia despues de una pasada sin filtro) -
+        # si el combo guardado ni siquiera esta en la lista de esta
+        # corrida, el for de abajo nunca lo iba a encontrar y terminaba
+        # saltandose TODOS los combos en silencio, marcando la pasada
+        # como "completa" sin haber procesado ni un tramo (confirmado en
+        # vivo: 0 lotes nuevos y "Pasada completa" a la vez). Si no esta,
+        # se descarta el resumen igual que se hace con un tramo que ya no
+        # existe mas arriba.
+        claves_combos = {f"{p}:{e}" for p, e in combos}
+        if combo_completo is not None and combo_completo not in claves_combos:
+            combo_completo = None
+        if combo_parcial is not None and combo_parcial not in claves_combos:
+            combo_parcial = None
+            ventana_completa = None
     saltando_combo = combo_completo is not None or combo_parcial is not None
 
     total = 0
@@ -503,6 +519,15 @@ def sync_seg_social_historico(provincias=None, con_detalle=True, progreso=None, 
             )
             prev = None
         ultimo = prev["last_combo"] if prev else None
+        # Mismo problema que en sync_boe_historico: el checkpoint es
+        # global pero `provincias` puede ser un subconjunto mas chico que
+        # la corrida anterior (ej. se filtro por Provincia despues de una
+        # pasada sin filtro) - si la provincia guardada ni esta en esta
+        # lista, el for de abajo la buscaba para siempre sin encontrarla
+        # y se saltaba TODAS las provincias en silencio, marcando la
+        # pasada como completa sin haber procesado ninguna.
+        if ultimo is not None and ultimo not in provincias:
+            ultimo = None
     saltando = ultimo is not None
 
     total = 0
