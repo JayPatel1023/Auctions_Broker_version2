@@ -455,7 +455,25 @@ def sync_boe_historico(desde=HISTORICO_DESDE, hasta=None, provincias=None, con_d
                     saltando_ventana = False
                 continue
 
-            lotes = _buscar_boe_fragmentado(scraper, prov_cod, estado_cod, v_desde, v_hasta)
+            # Antes, si un tramo agotaba los reintentos ante un bloqueo de
+            # BOE (ver CAPTCHA_MAX_REINTENTOS en boe.py), la excepcion
+            # cortaba TODO el barrido historico ahi mismo - un solo tramo
+            # tozudo (confirmado en vivo: la misma semana de 2016 seguia
+            # bloqueada mas de un dia despues, a diferencia de otros
+            # bloqueos que se destrababan solos) dejaba sin avanzar el
+            # resto de años y provincias que todavia faltaban. Ahora se
+            # salta solo ese tramo y se sigue con el resto - como el
+            # historico se reinicia solo en cada pasada completa (ver
+            # mas abajo), ese tramo se vuelve a intentar automaticamente
+            # la proxima vez, sin perder el avance de todo lo demas.
+            try:
+                lotes = _buscar_boe_fragmentado(scraper, prov_cod, estado_cod, v_desde, v_hasta)
+            except RuntimeError as e:
+                msg = f"Tramo bloqueado tras agotar reintentos, se salta - {PROVINCIAS[prov_cod]} / {ESTADOS[estado_cod]} ({v_desde}..{v_hasta})"
+                log.warning(f"{msg}: {e}")
+                if progreso:
+                    progreso(msg)
+                lotes = []
             if lotes:
                 msg = f"Histórico BOE - {PROVINCIAS[prov_cod]} / {ESTADOS[estado_cod]} ({v_desde}..{v_hasta}): {len(lotes)} lotes"
                 log.info(msg)
