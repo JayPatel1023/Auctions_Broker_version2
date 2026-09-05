@@ -22,6 +22,7 @@ Cada lote necesita 3 pedidos para tener los 24 campos del formato viejo
 import logging
 import random
 import re
+import subprocess
 import time
 
 import requests
@@ -85,6 +86,53 @@ CAPTCHA_MSG = "captcha"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("boe")
 
+# Idea del contacto del cliente en otra empresa que scrapea BOE Subastas
+# (2026-09-05): el bloqueo de verificacion de seguridad parece estar atado
+# a la IP, no solo al tiempo/sesion - confirmado antes en vivo (ver
+# CAPTCHA_ESPERA_SEGUNDOS mas abajo: ni 50 minutos de espera con sesion
+# nueva alcanzaban siempre). Si hay un cliente Mullvad instalado y logueado
+# en la maquina, se intenta cambiar de servidor (= IP de salida nueva)
+# ANTES de reintentar, en vez de solo esperar. Es un intento best-effort:
+# si Mullvad no esta instalado, no esta logueado, o el comando falla por
+# cualquier motivo, se sigue con la espera de siempre como si esto no
+# existiera - nunca debe ser la unica via de reintento.
+MULLVAD_PAISES = ["se", "no", "dk", "de", "nl", "fr", "gb", "ch", "at", "be", "fi", "ie"]
+
+
+def _rotar_ip_mullvad(pais_actual=None):
+    """Cambia el servidor de Mullvad a un pais al azar (distinto del
+    actual si se conoce) y espera a que la conexion quede activa. Devuelve
+    el codigo de pais nuevo si funciono, o None si Mullvad no esta
+    disponible/logueado o el cambio fallo por cualquier motivo."""
+    opciones = [p for p in MULLVAD_PAISES if p != pais_actual] or MULLVAD_PAISES
+    pais = random.choice(opciones)
+    try:
+        subprocess.run(
+            ["mullvad", "relay", "set", "location", pais],
+            timeout=10, capture_output=True, check=True,
+        )
+        subprocess.run(
+            ["mullvad", "connect"],
+            timeout=10, capture_output=True, check=True,
+        )
+        for _ in range(15):
+            estado = subprocess.run(
+                ["mullvad", "status"],
+                timeout=5, capture_output=True, text=True,
+            )
+            if "Connected" in estado.stdout:
+                return pais
+            time.sleep(1)
+        log.warning("Mullvad no confirmo conexion tras 15s, se sigue con espera normal")
+        return None
+    except FileNotFoundError:
+        # Mullvad no esta instalado en esta maquina - caso esperado para
+        # la mayoria de las instalaciones, no es un error real.
+        return None
+    except Exception as e:
+        log.warning(f"No se pudo rotar IP con Mullvad, sigo con reintento normal: {e}")
+        return None
+
 
 def _clean(txt):
     return re.sub(r"\s+", " ", txt or "").strip()
@@ -132,6 +180,7 @@ class BOEScraper:
         self.delay_max = delay_max
         self.progreso = progreso
         self._pedidos_desde_descanso = 0
+        self._mullvad_pais_actual = None
         self._rotate_headers()
 
     def _rotate_headers(self):
@@ -206,15 +255,31 @@ class BOEScraper:
         verdad esta vez."""
         if intento >= self.CAPTCHA_MAX_REINTENTOS:
             return False
-        msg = (
-            f"BOE pidió verificación de seguridad en {contexto} - esperando "
-            f"{self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar con sesión "
-            f"nueva (intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
-        )
-        log.warning(msg)
+        aviso = f"BOE pidió verificación de seguridad en {contexto}"
+        log.warning(aviso)
         if self.progreso:
-            self.progreso(msg)
-        time.sleep(self.CAPTCHA_ESPERA_SEGUNDOS)
+            self.progreso(aviso)
+
+        pais_nuevo = _rotar_ip_mullvad(self._mullvad_pais_actual)
+        if pais_nuevo:
+            self._mullvad_pais_actual = pais_nuevo
+            msg = (
+                f"IP rotada con Mullvad ({pais_nuevo}) - reintentando de "
+                f"inmediato (intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
+            )
+            log.info(msg)
+            if self.progreso:
+                self.progreso(msg)
+        else:
+            msg = (
+                f"esperando {self.CAPTCHA_ESPERA_SEGUNDOS}s antes de reintentar "
+                f"con sesión nueva (intento {intento + 1}/{self.CAPTCHA_MAX_REINTENTOS})"
+            )
+            log.warning(msg)
+            if self.progreso:
+                self.progreso(msg)
+            time.sleep(self.CAPTCHA_ESPERA_SEGUNDOS)
+
         self.session = requests.Session()
         self._rotate_headers()
         return True
